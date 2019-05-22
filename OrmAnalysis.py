@@ -16,9 +16,11 @@ class OrmAnalysis:
     """
     def __init__(self, dataFile, madxModelFile):
 
-        self.madxModelFile    = madxModelFile
-        self.dataFile       = dataFile
-        self.data           = self.readData(dataFile)
+        self.madxModelFile = madxModelFile
+        self.dataFile      = dataFile
+        self.data          = self.readData(dataFile)
+        self.monitor       = self.getMonitor()
+        self.kickers, self.kicks = self.getKicks()
 
     def readData(self, dataFile):
         """
@@ -64,10 +66,12 @@ class OrmAnalysis:
 
         return kickers, kicks
 
-    def computeOrmMeasured(self, monitor, kickers, kicks, data2 = 0):
+    def computeOrmMeasured(self, data2 = 0):
         """
         Computes the measured orbit responses at an specifical
-        monitor
+        monitor, returns the orbit response entries and their errors
+        as two arrays. The first entry of the arrays are the horizontal
+        response and the second is vertical response respectively.
         @param monitor(String) is the name of the monitor for which the
                orbit response is going to be computed
         @param kickers(String list) is a list containing the used kickers
@@ -92,7 +96,7 @@ class OrmAnalysis:
             shots = messung['shots']
             dataBeam = []
             for shot in shots:
-                dataBeam.append(shot[monitor])
+                dataBeam.append(shot[self.monitor])
 
             mean = np.mean(dataBeam, axis = 0)
             stdDev = np.std(dataBeam, axis = 0)
@@ -104,9 +108,9 @@ class OrmAnalysis:
         dORMcxx = []
         # Note that len(kicks) + 1 == len(beamMess) must hold
         # this condition could be implemented as control
-        for k in range( len(kicks) ):
-            k0 = madx.globals[kickers[k]]
-            kickDiff = (kicks[k]-k0)
+        for k in range( len(self.kicks) ):
+            k0 = madx.globals[self.kickers[k]]
+            kickDiff = (self.kicks[k]-k0)
             cxx  = (beamMess[k+1]-beamMess[0])/kickDiff
             # Gaussian error propagation
             dcxx = np.sqrt(beamMessDev[k+1]**2 + beamMessDev[0]**2)/kickDiff
@@ -122,8 +126,7 @@ class OrmAnalysis:
 
         return ORMcxx, dORMcxx
 
-    def ORMModel(self, monitor, kickers,
-                 kick = 2e-4 ):
+    def computeOrmModel(self, kick = 2e-4 ):
         """
         Computes the orbit response according to the MADX model
         with the same parameters as for a given measurement and
@@ -143,13 +146,12 @@ class OrmAnalysis:
         madx = Madx(stdout=False)
         madx.call(file=self.madxModelFile, chdir=True)
         elems = madx.sequence.hht3.expanded_elements
-        iMonitor = elems.index(monitor)
+        iMonitor = elems.index(self.monitor)
 
         Cxx = []
         Cxy = []
 
-        for k in kickers:
-
+        for k in self.kickers:
             madx.globals.update( self.data['model'] )
             twiss1 = madx.twiss(sequence='hht3', RMatrix=True,
                                 alfx = -7.2739282, alfy = -0.23560719,
@@ -181,57 +183,44 @@ class OrmAnalysis:
         madx.input('STOP;')
         return Cxx, Cxy
 
-    def computeORM(self, messFile2 = '', plot=True, saveFigs=False):
+    def visualizeData(self, messFile2 = '', saveFigs=False):
         """
         This functions plots the data of a given file, together
         with the modeled (expected) orbit response from MADX.
         If a second measurement file is given, it will be assumed the
         same conditions hold (same Monitor, same Kickers).
-        @param messFile2 is the second measurement, if the monitors
-               of both measurements don't agree, nothing is plotted
-        @param plot(boolean) plots the data and displays it
+        @param messFile2 is the second measurement
         @param saveFigs(boolean) saves the plots if True
         """
-        monitor = self.getMonitor()
-        kickers, kicks = self.getKicks()
-        ormG, dormG   = self.computeOrmMeasured(monitor, kickers, kicks)
-        ormMx, ormMy  = self.ORMModel(monitor, kickers)
+        ormG, dormG   = self.computeOrmMeasured()
+        ormMx, ormMy  = self.computeOrmModel()
 
+        # Horizontal response
         y1  = ormG[0]
         dy1 = dormG[0]
-
+        # Vertical response
         y2  = ormG[1]
         dy2 = dormG[1]
 
         if messFile2 != '':
             data2 = self.readData(messFile2)
-            ormG2, dormG2   = self.computeOrmMeasured(monitor, kickers,
-                                                      kicks, data2)
+            ormG2, dormG2   = self.computeOrmMeasured(data2)
             y12  = ormG2[0]
             dy12 = dormG2[0]
 
             y22  = ormG2[1]
             dy22 = dormG2[1]
 
-        if(plot):
-            self.plotData(monitor, kickers, y1, dy1, y2, dy2, ormMx, ormMy)
-            if(messFile2!=''):
-                self.plotData(monitor, kickers,
-                              y12, dy12, y22, dy22,
-                              ormMx, ormMy,plotModel=False)
+        self.plotData(y1, dy1, y2, dy2, ormMx, ormMy)
+        if(messFile2!=''):
+            self.plotData(y12, dy12, y22, dy22,
+                          ormMx, ormMy,plotModel=False)
+        plt.show()
+        plt.clf()
+        plt.cla()
+        plt.close()
 
-            plt.show()
-            plt.clf()
-            plt.cla()
-            plt.close()
-
-        Cxx = ( ormMx - y1 ) / dy1
-        Cyy = ( ormMy - y2 ) / dy2
-
-        return Cxx, Cyy
-
-    def plotData(self, monitor, kickers,
-                 y1, dy1, y2, dy2, ormMx, ormMy,
+    def plotData(self, y1, dy1, y2, dy2, ormMx, ormMy,
                  save = False, plotModel = True):
 
         x = np.linspace(0,len(y1),len(y1))
@@ -245,12 +234,12 @@ class OrmAnalysis:
         plt.xlabel('Kicker')
         plt.ylabel(r'Horizontal Orbit Response [mm mrad$^{-1}$]')
         locs, labels = plt.xticks()
-        plt.xticks(x, kickers, rotation='vertical')
-        plt.title("Monitor: {}".format(monitor))
+        plt.xticks(x, self.kickers, rotation='vertical')
+        plt.title("Monitor: {}".format(self.monitor))
         plt.legend(loc=0)
 
         if (save):
-            plt.savefig('Results/{}h'.format(monitor))
+            plt.savefig('Results/{}h'.format(self.monitor))
             plt.close()
 
         plt.figure(2,figsize=(8,8))
@@ -262,10 +251,10 @@ class OrmAnalysis:
         plt.xlabel('Kicker')
         plt.ylabel(r'Vertical Orbit Response [mm mrad$^{-1}$]')
         locs, labels = plt.xticks()
-        plt.xticks(x, kickers, rotation='vertical')
-        plt.title("Monitor: {}".format(monitor))
+        plt.xticks(x, self.kickers, rotation='vertical')
+        plt.title("Monitor: {}".format(self.monitor))
         plt.legend(loc=0)
 
         if (save):
-            plt.savefig('Results/{}v'.format(monitor))
+            plt.savefig('Results/{}v'.format(self.monitor))
             plt.close()
