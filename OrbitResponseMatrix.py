@@ -24,8 +24,7 @@ class OrbitResponseMatrix:
         self.nKickers = len(self.kickers)
         self.Mx = 0
         self.My = 0
-        self.dp0x = np.zeros(self.nMonitors + self.nKickers)
-        self.dp0y = np.zeros(self.nMonitors + self.nKickers)
+        self.dp0 = np.zeros(self.nMonitors + self.nKickers)
         self.computeOrm()
 
     def writeMessOrm(self, write=True):
@@ -129,52 +128,22 @@ class OrbitResponseMatrix:
         self.Mx = Mx
         self.My = My
 
-    def fitParameters(self, diffMask=1., uncMask=0.8, singularMask=0.03):
+    def fitParameters(self, singularMask=1e-4):
         """
         Here the parameters are fitted as in
         XFEL Beam Dynamics meeting (12.12.2005)
         but without the derivate part of the ORM.
-        @param diffMask is the biggest difference allowed between measurement
-               and model. Setting it to < 1 (within 1sigma range)
-               controls the divergence rate.
-        @param uncMask  is the biggest uncertainty allowed in the fit. This
-               means, that if the measurement posses a too big uncertainty
-               the entry is not taken into account.
         @param singularMask controls the entries that will be taken into
-               account in the singular value decomposition. The smaller this
-               value is allowed to be, the better.
+               account in the singular value decomposition.
         """
         vecOrmx = self.ormMx
         vecOrmy = self.ormMy
-        """
-        I filtered out here the entries which have a way too big
-        uncertainty. @uncMask
-        """
+
         vecOrmx = np.transpose(vecOrmx)
         vecOrmy = np.transpose(vecOrmy)
-        maskx = np.ones(len(vecOrmx[3]))
-        masky = np.ones(len(vecOrmy[3]))
-        for i in range(len(vecOrmx[3])):
-            if vecOrmx[3][i] > uncMask: maskx[i] = 0
-            #if vecOrmy[3][i] > 1: masky[i] = 0
 
         vecOrmx = (vecOrmx[2]-vecOrmx[4])/vecOrmx[3]
-        vecOrmx *= maskx
         vecOrmy = (vecOrmy[2]-vecOrmy[4])/vecOrmy[3]
-        vecOrmy *= masky
-
-        """
-        I filtered out here the entries which have a
-        also a very big difference to the model. @diffMask
-        """
-        for c in range(len(vecOrmx)):
-            if vecOrmx[c] > diffMask: vecOrmx[c] = 0.
-
-        #for c in range(len(vecOrmy)):
-        #    if vecOrmy[c] > 0.1: vecOrmy[c] = 0.
-
-        dp0x = np.zeros(self.nMonitors +  self.nKickers)
-        dp0y = np.zeros(self.nMonitors +  self.nKickers)
 
         # Singular Value Decomposition
         # dp = (B+)*A^{T}*(ORM_{gemessen} - ORM_{model})
@@ -185,36 +154,23 @@ class OrbitResponseMatrix:
         # 'Response matrix measurements and
         #  analysis at DESY'
 
-        Ux,Sx,Vx = np.linalg.svd( self.Mx, full_matrices=False, compute_uv=True)
-        Uy,Sy,Vy = np.linalg.svd( self.My, full_matrices=False, compute_uv=True)
+        M = np.vstack((self.Mx, self.My))
+        Mt = np.transpose(M)
+        B = np.matmul(Mt,M)
 
-        """
-        There are some zero singular values.
-        """
-        for i in range(len(Sx)):
-            if Sx[i] == 0: Sx[i] = 0.01
-            if Sy[i] == 0: Sy[i] = 0.01
+        U,S,Vt = np.linalg.svd( B, full_matrices=False, compute_uv=True)
+        D = 1/S
 
-        Dx = (1/Sx)
-        Dy = (1/Sy)
-        """
-        We also have to filter out the too big diagonal
-        entries. If not the algorithm diverges much rapidly. @singularMask
-        """
-        for i in range(len(Dx)):
-            if Dx[i] > singularMask : Dx[i] = 0.
-            if Dy[i] > singularMask*0.1 : Dy[i] = 0.
+        for s in range(len(D)):
+            if D[s] > singularMask: D[s] = 0.
 
-        Dx   = np.diag(Dx)
-        Amx  = np.matmul(Vx,np.matmul(Dx,np.transpose(Ux)))
-        dp1x = np.matmul(Amx, vecOrmx)
-
-        Dy   = np.diag(Dy)
-        Amy  = np.matmul(Vy,np.matmul(Dy,np.transpose(Uy)))
-        dp1y = np.matmul(Amy, vecOrmy)
-
-        self.dp0x = dp1x
-        self.dp0y = dp1y
+        D = np.diag(D)
+        V = np.transpose(Vt)
+        Ut =  np.transpose(U)
+        Bplus = np.matmul(V,np.matmul(D,Ut))
+        y = np.hstack((vecOrmx, vecOrmy))
+        dp0 = np.matmul(Bplus, Mt)
+        self.dp0 = np.matmul(dp0, y)
 
         """
         We scale the monitor reads and the kickers according to
@@ -224,30 +180,24 @@ class OrbitResponseMatrix:
         vecOrmy = self.ormMy
 
         for c in vecOrmx:
-            f =( ( 1 + self.dp0x[self.nMonitors + int(c[1])] ) /
-                 ( 1 + self.dp0x[int(c[0])] ) )
+            f =( ( 1 + self.dp0[self.nMonitors + int(c[1])] ) /
+                 ( 1 + self.dp0[int(c[0])] ) )
             c[4] *= f
 
         for c in vecOrmy:
-            f =( ( 1 + self.dp0y[self.nMonitors + int(c[1])] ) /
-                 ( 1 + self.dp0y[int(c[0])] ) )
+            f =( ( 1 + self.dp0[self.nMonitors + int(c[1])] ) /
+                 ( 1 + self.dp0[int(c[0])] ) )
             c[4] *= f
 
         self.ormMx = vecOrmx
         self.ormMy = vecOrmy
         self.computeOrm()
 
-        verOrmx = np.transpose(vecOrmx)
-        vecOrmy = np.transpose(vecOrmy)
-        vecOrmx = (np.array(vecOrmx[2])-np.array(vecOrmx[4]))/np.array(vecOrmx[3])
-        vecOrmy = (np.array(vecOrmy[2])-np.array(vecOrmy[4]))/np.array(vecOrmy[3])
-
-        L2error = np.sqrt(sum(vecOrmx)**2)
+        L2error = np.sqrt(sum(y)**2)
 
         return L2error
 
-    def optimize(self, nIterations=100,plot=True,
-                 diffMask=1., uncMask=0.8, singularMask=0.03):
+    def optimize(self, nIterations=100,plot=True, singularMask=1e-4):
         """
         Computes the optimization scheme with help of the
         function fitParameters and is able to plot the results.
@@ -258,7 +208,7 @@ class OrbitResponseMatrix:
         @param plot is a boolean, if True, the horizontal and vertical
                orbit response will be plotted together with the initial
                MAD-X model and the fitted orbit response.
-        @param diffMask, uncMask, singularMask see function fitParameters()
+        @param singularMask see function fitParameters()
         """
         L2 = []
 
@@ -297,11 +247,11 @@ class OrbitResponseMatrix:
         monNames  = list(self.monitors.keys())
 
         for i in range( nIterations ):
-            monx = self.dp0x[:self.nMonitors]
-            kickx = self.dp0x[self.nMonitors:]
+            monx = self.dp0[:self.nMonitors]
+            kickx = self.dp0[self.nMonitors:]
             kickerFits.append(kickx)
             monFits.append(monx)
-            error = self.fitParameters(diffMask, uncMask, singularMask)
+            error = self.fitParameters(singularMask)
             L2.append(error)
 
         kickerFits = np.transpose(kickerFits)
@@ -360,13 +310,12 @@ def main():
 
     for f in range(len(messFiles1)):
         messFiles1[f] = prePath1 + messFiles1[f]
-        #messFiles3[f] = prePath3 + messFiles3[f]
+        messFiles3[f] = prePath3 + messFiles3[f]
 
-    monitors = {'h1dg1g':0, 'h1dg2g':1, 'h2dg2g':2, 'h3dg3g':3,'b3dg2g':4, 'b3dg3g':5} #,'g3dg3g':6,'g3dg5g':7,'t3df1':8}
+    monitors = {'h1dg1g':0, 'h1dg2g':1, 'h2dg2g':2, 'h3dg3g':3,'b3dg2g':4, 'b3dg3g':5}#,'g3dg3g':6,'g3dg5g':7,'t3df1':8}
     madxFile = "../ormAnalysis/hit_models/hht3/run.madx"
 
-    orm = OrbitResponseMatrix( messFiles1, monitors, madxFile, readOrm=1 )
-    orm.optimize(nIterations=9, plot=1)
-                 #diffMask=1.5, uncMask=1.5, singularMask=0.02)
+    orm = OrbitResponseMatrix( messFiles3, monitors, madxFile, readOrm=1 )
+    orm.optimize(nIterations=10, plot=1, singularMask=1e2)
 
 main()
