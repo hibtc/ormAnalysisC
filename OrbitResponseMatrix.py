@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 
 class OrbitResponseMatrix:
 
-    def __init__(self, messFiles, monitors, madxFile, readOrm = False):
+    def __init__(self, messFiles, monitors, madxFile, readOrm = False, plotEachM=True):
 
         self.messFiles = messFiles
         self.monitors  = monitors
@@ -21,7 +21,7 @@ class OrbitResponseMatrix:
             self.ormMx, self.ormMy = self.readMessOrm()
             self.setKickers()
         else:
-            self.ormMx, self.ormMy = self.writeMessOrm()
+            self.ormMx, self.ormMy = self.writeMessOrm(True, plotEachM)
         self.nKickers = len(self.kickers)
         self.Mx = 0
         self.My = 0
@@ -33,7 +33,7 @@ class OrbitResponseMatrix:
         self.y0 = []
         self.computeOrm()
 
-    def writeMessOrm(self, write=True):
+    def writeMessOrm(self, write=True, plot=True):
         """
         Computes the measured orbit response and writes a text file
         which contains the numbering of the monitor, the numbering of
@@ -55,6 +55,7 @@ class OrbitResponseMatrix:
             mMy = mMeasured[1]
             dmMx = dmMeasured[0]
             dmMy = dmMeasured[1]
+            if(plot): ormA.visualizeData()
 
             for i in range(len(ks)):
                 ormx.append([self.monitors[m], i, mMx[i], dmMx[i], mModelx[i]])
@@ -322,14 +323,23 @@ class OrbitResponseMatrix:
         kickNames = list(self.kickers.keys())
         monNames  = list(self.monitors.keys())
 
+        monx = self.dp0[:self.nMonitors]
+        kickx = self.dp0[self.nMonitors:]
+        kickerFits.append(kickx)
+        monFits.append(monx)
+        chi20 = self.fitParameters(singularMask)
+        L2.append(chi20)
         error = 1
+
         while(error > 1e-10):
             monx = self.dp0[:self.nMonitors]
             kickx = self.dp0[self.nMonitors:]
             kickerFits.append(kickx)
             monFits.append(monx)
-            error = self.fitParameters(singularMask)
-            L2.append(error)
+            chi21 = self.fitParameters(singularMask)
+            error = abs(chi21 - chi20)
+            chi20 = chi21
+            L2.append(chi21)
 
         kickerFits = np.transpose(kickerFits)
         kFits = []
@@ -425,7 +435,7 @@ class OrbitResponseMatrix:
         print('Fitting model to data. This might take a while...')
         error = 10000
         iteration = 0
-        for iteration in range(43):
+        for iteration in range(nIterations):
         #while( error > 1e-1 ):
             print('Iteration ',iteration+1,' , ERROR = ', error)
             error = self.fitParameters(singularMask)
@@ -490,8 +500,8 @@ def main():
         '2018-10-21_03-54-09_hht3_h3dg3g.orm_measurement.yml',
         '2018-10-21_03-38-51_hht3_b3dg2g.orm_measurement.yml',
         '2018-10-21_03-21-09_hht3_b3dg3g.orm_measurement.yml',
-        #'2018-10-21_02-50-02_hht3_g3dg3g.orm_measurement.yml',
-        #'2018-10-21_02-25-45_hht3_g3dg5g.orm_measurement.yml',
+        '2018-10-21_02-50-02_hht3_g3dg3g.orm_measurement.yml',
+        '2018-10-21_02-25-45_hht3_g3dg5g.orm_measurement.yml',
         #'2018-10-21_01-52-39_hht3_t3df1.orm_measurement.yml',
     ]
 
@@ -504,24 +514,54 @@ def main():
         '2019-05-12_02-39-53_hht3_h3dg3g.orm_measurement.yml',
         '2019-05-12_02-51-13_hht3_b3dg2g.orm_measurement.yml',
         '2019-05-12_03-05-19_hht3_b3dg3g.orm_measurement.yml',
-        '/home/cristopher/HIT/ormAnalysis/ormMessdata/2019-05-11/GantryDaten/nullDeg/2019-05-12_05-19-01_hht3_g3dg3g.orm_measurement.yml',
+        #'/home/cristopher/HIT/ormAnalysis/ormMessdata/2019-05-11/GantryDaten/nullDeg/2019-05-12_05-19-01_hht3_g3dg3g.orm_measurement.yml',
         #'/home/cristopher/HIT/ormAnalysis/ormMessdata/2019-05-11/GantryDaten/nullDeg/2019-05-12_05-00-51_hht3_g3dg5g.orm_measurement.yml'
     ]
-
+    prePath4 = '../ormAnalysis/ormMessdata/10-06-2019/'
+    messFiles4 = [
+        '2019-06-10_08-31-35_hht3_h1dg1g.orm_measurement.yml',
+        '2019-06-10_08-36-56_hht3_h1dg2g.orm_measurement.yml',
+        '2019-06-10_08-48-04_hht3_h2dg2g.orm_measurement.yml',
+        '2019-06-10_09-00-22_hht3_h3dg3g.orm_measurement.yml',
+        '2019-06-10_09-20-44_hht3_b3dg2g.orm_measurement.yml',
+        '2019-06-10_09-44-26_hht3_b3dg3g.orm_measurement.yml',
+        '2019-06-10_10-10-58_hht3_g3dg3g.orm_measurement.yml',
+        '2019-06-10_10-41-00_hht3_g3dg5g.orm_measurement.yml',
+        ]
     for f in range(len(messFiles1)):
         messFiles1[f] = prePath1 + messFiles1[f]
-        #messFiles3[f] = prePath3 + messFiles3[f]
+        messFiles4[f] = prePath4 + messFiles4[f]
 
-    monitors = {'h1dg1g':0, 'h1dg2g':1, 'h2dg2g':2, 'h3dg3g':3,'b3dg2g':4, 'b3dg3g':5}#,'g3dg3g':6}#,'g3dg5g':7,'t3df1':8}
+    monitors = {'h1dg1g':0, 'h1dg2g':1, 'h2dg2g':2, 'h3dg3g':3,'b3dg2g':4, 'b3dg3g':5,'g3dg3g':6,'g3dg5g':7}#,'t3df1':8}
+    #i = monitors.index(name)
     madxFile = "../ormAnalysis/hit_models/hht3/run.madx"
 
     #pList = ['kL_H1QD11','kL_H1QD12','kL_H2QT11','kL_H2QT12','kL_H2QT13']
     #pList = ['kL_H2QT11','kL_H2QT12','kL_H2QT13']
-    pList = ['ay_h1ms1','ax_h1ms2','ax_h1mb1','ax_h1ms3','ay_h1ms4'  ]
-    orm1 = OrbitResponseMatrix( messFiles1, monitors, madxFile, readOrm=1 )
-    #orm1.optimize(plot=1)
-    orm1.optimize2(pList,plot=1,singularMask=5e-6,nIterations=20)
-    #orm2 = OrbitResponseMatrix( messFiles3, monitors, madxFile, readOrm=0 )
+    pList = ['ax_h1ms2','ax_h1mb1','ax_h1ms3','ay_h1ms4', 'kL_H1QD12']
+             #,'kL_H2QT12','kL_H2QT13']
+    pList = [#'dax_s4mu1e',
+             #'ay_h1ms1',
+             'ax_h1ms2',
+             'ax_h1mb1',
+             'ax_h1ms3',
+             'ay_h1ms4',
+             'ay_h2ms1',
+             'ax_h3ms1',
+             'ay_h3ms2',
+             'ax_h3ms3',
+             #'ay_h3ms4',
+             'dax_b3mu1',
+             'dax_b3mu2']
+             #'ax_b3ms1',
+             #'ay_b3ms2']
+    #orm1 = OrbitResponseMatrix( messFiles1, monitors, madxFile, readOrm=0 )
+    #orm1.optimize(plot=1, singularMask=1e5)
+    #orm1 = OrbitResponseMatrix( messFiles3, monitors, madxFile, readOrm=0 )
+    #orm1.optimize(plot=1, singularMask=1e5)
+    orm2 = OrbitResponseMatrix( messFiles4, monitors, madxFile, readOrm=0, plotEachM=False )
+    #orm2.optimize(pList,plot=1,singularMask=2e-5,nIterations=3)
+    orm2.optimize(plot=1,singularMask=1e2)
     #m2, k2 = orm2.optimize(plot=0, singularMask=1e-1)
 
 main()

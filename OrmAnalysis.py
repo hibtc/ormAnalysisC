@@ -14,7 +14,7 @@ class OrmAnalysis:
     @param dataFile is the file path where the measured data is. It is
            expected to be a measurement as produced by madgui in yaml format.
     @param madxModelFile is the file path to the MAD-X model file. The model
-           should run in MAD-X.
+        should run in MAD-X.
     """
     def __init__(self, dataFile, madxModelFile):
 
@@ -29,6 +29,8 @@ class OrmAnalysis:
         self.dpx = 1.0e-6
         self.dy = 1.0e-4
         self.dpy = 1.0e-6
+        self.madx = Madx(stdout=False)
+        self.madx.call(file=self.madxModelFile, chdir=True)
 
     def readData(self, dataFile):
         """
@@ -121,7 +123,7 @@ class OrmAnalysis:
             kickDiff = (self.kicks[k]-k0)
             cxx  = (beamMess[k+1]-beamMess[0])/kickDiff
             # Gaussian error propagation
-            dcxx = np.sqrt(beamMessDev[k+1]**2 + beamMessDev[0]**2)/kickDiff
+            dcxx = np.sqrt(beamMessDev[k+1]**2 + beamMessDev[0]**2)/(kickDiff*np.sqrt(len(beamMessDev[k+1])))
             ORMcxx.append(cxx)
             dORMcxx.append(dcxx)
 
@@ -140,8 +142,7 @@ class OrmAnalysis:
         with the same parameters as for a given measurement and
         for a given monitor and kicker list.
         """
-        madx = Madx(stdout=False)
-        madx.call(file=self.madxModelFile, chdir=True)
+        madx = self.madx
         elems = madx.sequence.hht3.expanded_elements
         iMonitor = elems.index(self.monitor)
 
@@ -187,8 +188,7 @@ class OrmAnalysis:
         but it does the same, but changing the parameters
         in the model of MAD-X.
         """
-        madx = Madx(stdout=False)
-        madx.call(file=self.madxModelFile, chdir=True)
+        madx = self.madx
         elems = madx.sequence.hht3.expanded_elements
         iMonitor = elems.index(self.monitor)
 
@@ -246,6 +246,7 @@ class OrmAnalysis:
                reasons!!! Going smaller changes drastically the computation.
                Going up leaves the same results up to numerical precision.
         """
+        madx = self.madx
         p0List = np.array(p0List)
         ormMx1, ormMy1 = self.computeOrmModelpList(pList, p0List)
         dCx = []
@@ -255,10 +256,8 @@ class OrmAnalysis:
         I should ask Thomas for a better implementation
         """
         for p in range(len(pList)):
-            pList1 = np.ones(len(pList))
-            for q in range(len(pList1)):
-                pList1[q] = p0List[p]
-                if p == q: pList1[q] = p0List[p] + dp
+            pList1 = np.array(p0List)
+            pList1[p] += dp
             #print(p)
             #print(p0List)
             #print(pList1)
