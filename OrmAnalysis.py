@@ -4,6 +4,8 @@ from yaml import safe_load
 import numpy as np
 import matplotlib.pyplot as plt
 
+# TODO: Corrected the bug in the dOrmdP
+
 class OrbitResponse:
 
     """
@@ -158,7 +160,8 @@ class OrbitResponse:
             orbitResponse_y.append(cy)
         return orbitResponse_x, orbitResponse_y
 
-    def ormModelpList(self, pList, dpList, kick=2e-4):
+    def ormModelpList(self, pList, dpList, kickers, dkickers,
+                            kick=2e-4):
         """
         Computes the ORM and allows a user-defined list of
         parameters to be changed during the computation
@@ -178,7 +181,8 @@ class OrbitResponse:
         # before we compute the Orbit Response
         for p in range(len(pList)):
             madx.globals[pList[p]] += dpList[p]
-
+        for k in range(len(kickers)):
+            madx.globals[kickers[k]] = dkickers[k]*madx.globals[kickers[k]]
         twiss1 = madx.twiss(sequence=self.sequence, RMatrix=True,
                             alfx = -7.2739282, alfy = -0.23560719,
                             betx = 44.404075,  bety = 3.8548009,
@@ -192,8 +196,9 @@ class OrbitResponse:
             # before we compute the Orbit Response
             for p in range(len(pList)):
                 madx.globals[pList[p]] += dpList[p]
-                madx.globals[k] += kick
-                
+            for kname in range(len(kickers)):
+                madx.globals[kickers[kname]] *= (dkickers[kname])
+            madx.globals[k] += kick   
             twiss2 = madx.twiss(sequence=self.sequence, RMatrix=True,
                                 alfx = -7.2739282, alfy = -0.23560719,
                                 betx = 44.404075,  bety = 3.8548009,
@@ -206,7 +211,7 @@ class OrbitResponse:
             cy = (y2 - y1) / kick
             orbitResponse_x.append(cx)
             orbitResponse_y.append(cy)
-        return np.array(orbitResponse_x), np.array(orbitResponse_x)
+        return np.array(orbitResponse_x), np.array(orbitResponse_y)
 
     def forwardDorm(self, pList, dpList, kick=2e-4, dp=1e-9):
         """
@@ -254,7 +259,8 @@ class OrbitResponse:
             dCy.append(dCydP)
         return np.array(dCx), np.array(dCy)
 
-    def centralDorm(self, pList, dpList, kick=2e-4, dp=1e-5):
+    def centralDorm(self, pList, dpList, kickers=[], dkickers=[],
+                    kick=2e-4, dp=1e-8):
         """
         Central finite difference. (See forwardDorm for description).
         This is the way to go.
@@ -268,8 +274,12 @@ class OrbitResponse:
             dpList_forw = np.array(dpList)
             dpList_back[param] -= dp
             dpList_forw[param] += dp
-            ormMxback, ormMyback = self.ormModelpList(pList, dpList_back, kick)
-            ormMxforw, ormMyforw = self.ormModelpList(pList, dpList_forw, kick)
+            ormMxback, ormMyback = self.ormModelpList(pList, dpList_back,
+                                                      kickers, dkickers,
+                                                      kick)
+            ormMxforw, ormMyforw = self.ormModelpList(pList, dpList_forw,
+                                                      kickers, dkickers,
+                                                      kick)
             dCxdP = (ormMxforw - ormMxback) / (2*dp)
             dCydP = (ormMyforw - ormMyback) / (2*dp)
             dCx.append(dCxdP)
@@ -370,6 +380,7 @@ class ORMOptimizer:
         self.nKickers = len(self.kickers)
         self.dCij_x = 0
         self.dCij_y = 0
+        self.setdCij()
         self.Ax = 0
         self.Ay = 0
         # Needed for optimize2
@@ -378,7 +389,10 @@ class ORMOptimizer:
         self.dOrmydP = []
         self.pList = []
         self.dp0List = []
-        self.y0 = []
+        self.dParams  = []
+        self.dKickers = np.ones(len(self.kickers))
+        self.dMonitors_x = np.ones(self.nMonitors)
+        self.dMonitors_y = np.ones(self.nMonitors)
         
     def getMonitors(self):
         orbResponse = self.orbitResponseAnalyzer
@@ -426,7 +440,7 @@ class ORMOptimizer:
 
     def setdCij(self):
         """
-        Computes the difference between measured and modeled OR
+        Computes the difference between measured and modeled Orbit Response
         Requires self.ormMx and self.ormMy
         """
         dCij_x = self.ormMx
@@ -461,7 +475,7 @@ class ORMOptimizer:
         """
         Initializes the Matrix A (s. Appendix A in protocol)
         """
-        # ormMx has the structure (see initializeOrm() )
+        # ormMx has the structure (see initializeOrm())
         # Monitor Kicker ORMeasured Error ORModeled
         nColumns = len(self.ormMx)
         nRows    = self.nMonitors + self.nKickers
@@ -479,22 +493,20 @@ class ORMOptimizer:
             Ay[i][mon_i] = -entryCij_y
             Ax[i][self.nMonitors + kick_j] = entryCij_x
             Ay[i][self.nMonitors + kick_j] = entryCij_y
-
-        self.setdCij()
-
+            
         if(len(self.dOrmxdP)):
             dOrmx = np.transpose(self.dOrmxdP)
             dOrmy = np.transpose(self.dOrmydP)
             for i in range(nColumns):
-                dOrmx[i] = dOrmx[i]/Cijx[3]
-                dOrmy[i] = dOrmy[i]/Cijy[3]
+                dOrmx[i] = dOrmx[i]/Cij_x[3]
+                dOrmy[i] = dOrmy[i]/Cij_y[3]
                 """
                 for e in range(len(dOrmx[i])):
                     if dOrmx[i][e] > 10: dOrmx[i][e] = 0
                     if dOrmy[i][e] > 10: dOrmy[i][e] = 0
                 """
-            Ax = np.hstack((dOrmx,Mx))
-            Ay = np.hstack((dOrmy,My))
+            Ax = np.hstack((dOrmx,Ax))
+            Ay = np.hstack((dOrmy,Ay))
         # In case we want to see that everything works fine.
         # Difficult to see though, since we have an ~50x(7+19)
         # matrix.
@@ -514,12 +526,10 @@ class ORMOptimizer:
         self.Ax = Ax
         self.Ay = Ay
 
-    def fitParameters(self, singularMask=100):
+    def fitParameters(self):
         """
         Here the parameters are fitted as in
         XFEL Beam Dynamics meeting (12.12.2005)
-        @param singularMask controls the entries that will be taken into
-               account in the singular value decomposition.
         """
         self.setdCij()
         # dp = (B+)*A^{T}*(ORM_{gemessen} - ORM_{model})
@@ -529,19 +539,21 @@ class ORMOptimizer:
         At_y = np.transpose(self.Ay)
         Bx   = np.matmul(At_x, self.Ax)
         By   = np.matmul(At_y, self.Ay)    
-        Bp_x = self._getPseudoInverse(Bx, singularMask)
-        Bp_y = self._getPseudoInverse(By, singularMask)
+        Bp_x = self._getPseudoInverse(Bx)
+        Bp_y = self._getPseudoInverse(By)
         err_x = np.matmul(Bp_x, np.matmul(At_x, self.dCij_x))
         err_y = np.matmul(Bp_y, np.matmul(At_y, self.dCij_y))
         return err_x, err_y
         
-    def _getPseudoInverse(self, B, singularMask):
+    def _getPseudoInverse(self, B, singularMask=10000):
         """
         Internal computation. Just for style...
+        @param singularMask controls the entries that will be taken into
+               account in the singular value decomposition.
         """
         U, S, Vt = np.linalg.svd(B, full_matrices=False, compute_uv=True)
         for s in range(len(S)):
-            if S[s] < singularMask: S[s] = 10e15
+            if S[s] < singularMask: S[s] = 10e30
         Ut = np.transpose(U)
         V  = np.transpose(Vt)
         D  = 1/S
@@ -572,80 +584,223 @@ class ORMOptimizer:
         self.setdCij()
         return errx[:nMon],erry[:nMon], kicksErr
 
-    def getChi2(self):
-        """
-        Returns the Chi2 sum
-        """
-        chi2x = sum(self.dCij_x)**2
-        chi2y = sum(self.dCij_y)**2
-        return chi2x, chi2y
+    def getGlobalMachineError(self):
+        gmex = sum(self.dCij_x**2)
+        gmey = sum(self.dCij_y**2)
+        return gmex, gmey
     
     def fitErrorsSimple(self, error=1e-9 ,plot=True, maxIt=100):
         """
         Fits the errors until a user defined precision 
-        is reached
+        is reached. Takes into consideration the Global Machine
+        Error (gme)
         """
         self.initializeAMat()
-        chi2 = [self.getChi2()]
-        fitErrx, fitErry = self.getChi2()
-        monx, mony, kickerErr = [], [], []
+        gme = [self.getGlobalMachineError()]
+        fitErrx, fitErry = self.getGlobalMachineError()
+        monxErrFit, monyErrFit, kickerErrFit = [], [], []
         it = 0
         if(plot):
             ormMx   = np.transpose(self.ormMx)
             ormMy   = np.transpose(self.ormMy)
             modely0 = ormMy[4]
             modelx0 = ormMx[4]
-        while(fitErrx > error and maxIt > it):
-            chix_old, chiy_old = self.getChi2()
+        converged = False
+        while(not converged and maxIt > it):
+            gmex_old, gmey_old = self.getGlobalMachineError()
             errx, erry = self.fitParameters()
             x,y,z = self.actualizeModelSimple(errx, erry)
-            kickerErr.append(z)
-            monx.append(x)
-            mony.append(y)
-            chi2.append(self.getChi2())
-            chix_new, chiy_new = self.getChi2()
-            fitErrx = abs(chix_old - chix_new)
+            kickerErrFit.append(z)
+            monxErrFit.append(x)
+            monyErrFit.append(y)
+            gme.append(self.getGlobalMachineError())
+            gmex_new, gmey_new = self.getGlobalMachineError()
+            fitErrx   = abs(gmex_old - gmex_new)
+            converged = (fitErrx < error)
             it += 1
+        if(converged):
+            self._displayResults(kickerErrFit,monxErrFit,monyErrFit,
+                                            it,gme)
+            self._plotFit(modelx0,modely0)
+        else: print('Simple fit did not converge')
+
+    def actualizeModel(self, errx, erry):
+        paramErrx = errx[:self.nParams]
+        monErrx   = errx[self.nParams:self.nParams+len(self.messFiles)]
+        kickErrx  = errx[self.nParams+len(self.messFiles):]
+        paramErry = erry[:self.nParams]
+        monErry   = erry[self.nParams:self.nParams+len(self.messFiles)]
+        kickErry  = erry[self.nParams+len(self.messFiles):]
+
+        paramErr = (paramErrx + paramErry) / 2
+        kicksErr = (kickErrx + kickErry) / 2
+        
+        for i in range(len(self.kickers)):
+            self.dKickers[i]   *= (1 + kicksErr[i])
+        for i in range(self.nMonitors):
+            self.dMonitors_x[i] *= (1 + monErrx[i])
+            self.dMonitors_y[i] *= (1 + monErry[i])
+        for i in range(self.nParams):
+            self.dp0List[i] += paramErry[i]
+        orA = self.orbitResponseAnalyzer
+        orbitResponse_x = []
+        orbitResponse_y = []
+        for mon_i in range(len(self.messFiles)):
+            measurement = self.messFiles[mon_i]
+            orA.setData(measurement)
+            kickers = orA.kickers
+            for k in kickers:
+                if k not in self.kickers: self.kickers[k] = len(self.kickers) + 1
+            mModelx, mModely = orA.ormModelpList(self.pList, self.dp0List,
+                                                 list(self.kickers.keys()),
+                                                      self.dKickers)
+            for k_i in range(len(kickers)):
+                orbitResponse_x.append(mModelx[k_i])
+                orbitResponse_y.append(mModely[k_i])
+
+        for c in range(len(self.ormMx)):
+            self.ormMx[c][4] = orbitResponse_x[c]
+            self.ormMy[c][4] = orbitResponse_y[c]
+        
+        for c in self.ormMx: c[4] /= self.dMonitors_x[int(c[0])]
+        for c in self.ormMy: c[4] /= self.dMonitors_y[int(c[0])]
+        self.setdCij()
+        
+    def fitErrors(self, pList):
+
+        print('-----------------------------------------')
+        print('-----------------------------------------')
+        print('')
+        print('        Initializing fitting')
+        print('')
+        print('-----------------------------------------')
+        print('-----------------------------------------')
+        print('')
+        ormMx   = np.transpose(self.ormMx)
+        ormMy   = np.transpose(self.ormMy)
+        modely0 = ormMy[4]
+        modelx0 = ormMx[4]
+
+        gme = [self.getGlobalMachineError()]
+        self.setpList(pList)
+        self.computedOrmdP()
+        self.initializeAMat()
+
+        converged = False
+        maxIt = 100
+        it = 0
+        error = 1e-3
+        
+        while (not converged and it < maxIt):
+            gmex_old, gmey_old = self.getGlobalMachineError()
+            print('    Iteration:   ', it+1)
+            print('  GME: x-> {}  y-> {}'.format(round(gmex_old,3),round(gmey_old,3)))
+            errx, erry = self.fitParameters()
+            self.actualizeModel(errx,erry)
+            gme.append(self.getGlobalMachineError())
+            self.computedOrmdP(list(self.kickers.keys()),self.dKickers)
+            self.initializeAMat()
+            gmex_new, gmey_new = self.getGlobalMachineError()
+            converged = (abs(gmex_new - gmex_old) < error)
+            it += 1
+
+        if(converged):
+            self._displayResultsNotSimple(it, gme, plot=True)
+            self._plotFit(modelx0,modely0)
+
+    def setpList(self, pList):
+        self.pList   = pList
+        self.nParams = len(pList)
+        self.dp0List = np.zeros(self.nParams)
+        
+    def computedOrmdP(self, kickers=[], dKickers=[]):
+        """
+        Computes the orbit response matrix derivative
+        """
+        dOrmx = []
+        dOrmy = []
+        #Initialize dp0 with zeros
+        if len(self.dp0List) == 0: self.dp0List = np.zeros(len(self.pList))
+        for measurement in self.messFiles:
+            ormA = self.orbitResponseAnalyzer
+            ormA.setData(measurement)
+            dormx, dormy = ormA.centralDorm(self.pList, self.dp0List,
+                                            kickers, dKickers)
+            dOrmx.append(dormx)
+            dOrmy.append(dormy)
+        dormx = []
+        dormy = []
+        for j in range(self.nParams):
+            myArrax = []
+            myArray = []
+            for i in range(len(self.messFiles)):
+                for k in dOrmx[i][j]:
+                    myArrax.append(k)
+                for k in dOrmy[i][j]:
+                    myArray.append(k)
+            dormx.append(myArrax)
+            dormy.append(myArray)
+        self.dOrmxdP = dormx
+        self.dOrmydP = dormy
+
+    def _displayResults(self, kickerErrFit, monxErrFit, monyErrFit, it, gme,
+                        plot=False):
+        gme = np.transpose(gme)
         if(plot):
-            chi2 = np.transpose(chi2)
-            plt.plot(abs(chi2[0][1:]-chi2[0][:-1]),marker='.',label=r'$\chi^2_x$')
-            plt.plot(abs(chi2[1][1:]-chi2[1][:-1]),marker='.',label=r'$\chi^2_y$')
+            plt.plot(abs(gme[0][1:]-gme[0][:-1]),marker='.',label=r'$gme_x$')
+            plt.plot(abs(gme[1][1:]-gme[1][:-1]),marker='.',label=r'$gme_y$')
             plt.xlabel('Iteration')
-            plt.ylabel(r'Error ($|\chi^2_{new} - \chi^2_{old}$|)')
+            plt.ylabel(r'Error (|GME$_{new}$ - GME$_{old}$|)')
             plt.yscale('log')
             plt.legend()
             plt.show()
-            self.plotSimpleFit(modelx0,modely0)
-        kickerErr = np.transpose(kickerErr)
-        relFit = np.ones(self.nKickers)
+        kickerErrFit = np.transpose(kickerErrFit)
+        relFit    = np.ones(self.nKickers)
         for k in range(self.nKickers):
-            for c in kickerErr[k]:
+            for c in kickerErrFit[k]:
                 relFit[k] *= (1 + c)
         labls = list(self.kickers.keys())
-        print('Fit converged')
+        print('-----------------------------------------')
+        print('-----------------------------------------')
         print('')
+        print('            Fit converged')
+        print('')
+        print('-----------------------------------------')
+        print('-----------------------------------------')
         print('Number of iterations: ', it)
         print('')
-        print('Initial chi2: x-> ', chi2[0][0], ' y-> ', chi2[1][0])
+        print('Initial GME: x-> ', round(gme[0][0],3), ' y-> ', round(gme[1][0],3))
         print('')
-        print('Final chi2: x-> ', chi2[0][-1],  ' y-> ', chi2[1][-1])
+        print('Final   GME: x-> ', round(gme[0][-1],3),' y-> ', round(gme[1][-1],3))
+        print('')
+        print('-----------------------------------------')
+        print('-----------------------------------------')
         print('')
         print('Fit parameters for kickers:')
+        print('')
+        print('-----------------------------------------')
+        print('-----------------------------------------')
         print('')
         for k in range(self.nKickers):
             fit_k = (relFit[k]-1)*100
             print('{} : {} %'.format(labls[k], round(fit_k,3)))
         print('')
+        print('-----------------------------------------')
+        print('-----------------------------------------')
+        print('')
         print('Fit parameters for monitors')
         print('')
-        monxErr = np.transpose(monx)
-        monyErr = np.transpose(mony)
+        print('-----------------------------------------')
+        print('-----------------------------------------')
+        print('')
+        monxErrFit = np.transpose(monxErrFit)
+        monyErrFit = np.transpose(monyErrFit)
         relFitx = np.ones(self.nMonitors)
         relFity = np.ones(self.nMonitors)
         for m in range(self.nMonitors):
-            for c in monxErr[m]:
+            for c in monxErrFit[m]:
                 relFitx[m] *= (1 + c)
-            for c in monyErr[m]:
+            for c in monyErrFit[m]:
                 relFity[m] *= (1 + c)
         for m in range(self.nMonitors):
             fitx_m = (relFitx[m]-1)*100
@@ -653,271 +808,110 @@ class ORMOptimizer:
             print('{} : x-> {} %  y-> {} %'.format(self.monitors[m],
                                                  round(fitx_m,3),
                                                  round(fity_m,3)))
-        
-    def plotSimpleFit(self, modelx0, modely0):
-        ormMx = np.transpose(self.ormMx)
-        measured = ormMx[2]
-        error    = ormMx[3]
-        model    = ormMx[4]
-        x        = np.arange(len(measured))
-        plt.errorbar(x, measured, yerr=error, label='Messung')
-        plt.plot(x, modelx0, label='Model',marker='.')
-        plt.plot(x, model, label='Fit', marker='.')
-        plt.legend(loc=0)
-        plt.show()
-        ormMy = np.transpose(self.ormMy)
-        measured = ormMy[2]
-        error    = ormMy[3]
-        model    = ormMy[4]
-        y        = np.arange(len(measured))
-        plt.errorbar(y, measured, yerr=error, label='Messung')
-        plt.plot(y, modely0, label='Model', marker='.')
-        plt.plot(y, model, label='Fit', marker='.')
-        plt.legend(loc=0)
-        plt.show()
-        
-    def computedOrmdP(self):
-        """
-        Computes the orbit response matrix derivative
-        """
-        dOrmx = []
-        dOrmy = []
+        print('')
+        print('-----------------------------------------')
+        print('-----------------------------------------')
+        print('')
 
-        #Initialize dp0 with zeros
-        if len(self.dp0List) == 0: self.dp0List = np.zeros(len(self.pList))
-
-        for measurement in self.messFiles:
-            ormA = ormAna.OrmAnalysis( measurement, self.madxFile )
-            dormx, dormy = ormA.computeDorm(self.pList, self.dp0List)
-            #print(dormx)
-            dOrmx.append(dormx)
-            dOrmy.append(dormy)
-
-        dormx = []
-        dormy = []
-        for j in range( self.nParams ):
-            myArrax = []
-            myArray = []
-            for i in range( len(self.messFiles) ):
-                for k in dOrmx[i][j]:
-                    myArrax.append(k)
-                for k in dOrmy[i][j]:
-                    myArray.append(k)
-            dormx.append(myArrax)
-            dormy.append(myArray)
-            
-        self.dOrmxdP = dormx
-        self.dOrmydP = dormy
+    def _displayResultsNotSimple(self, it, gme, plot=True):
+        gme = np.transpose(gme)
+        if(plot):
+            plt.plot(abs(gme[0][1:]-gme[0][:-1]),marker='.',label=r'$gme_x$')
+            plt.plot(abs(gme[1][1:]-gme[1][:-1]),marker='.',label=r'$gme_y$')
+            plt.xlabel('Iteration')
+            plt.ylabel(r'Error (|GME$_{new}$ - GME$_{old}$|)')
+            plt.yscale('log')
+            plt.legend()
+            plt.show()
+        labls = list(self.kickers.keys())
+        print('-----------------------------------------')
+        print('-----------------------------------------')
+        print('')
+        print('            Fit converged')
+        print('')
+        print('-----------------------------------------')
+        print('-----------------------------------------')
+        print('Number of iterations: ', it)
+        print('')
+        print('Initial GME: x-> ', round(gme[0][0],3), ' y-> ', round(gme[1][0],3))
+        print('')
+        print('Final   GME: x-> ', round(gme[0][-1],3),' y-> ', round(gme[1][-1],3))
+        print('')
+        print('-----------------------------------------')
+        print('-----------------------------------------')
+        print('')
+        print('Fit parameters for kickers:')
+        print('')
+        print('-----------------------------------------')
+        print('-----------------------------------------')
+        print('')
+        for k in range(self.nKickers):
+            fit_k = (self.dKickers[k]-1)*100
+            print('{} : {} %'.format(labls[k], round(fit_k,3)))
+        print('')
+        print('-----------------------------------------')
+        print('-----------------------------------------')
+        print('')
+        print('Fit parameters for monitors')
+        print('')
+        print('-----------------------------------------')
+        print('-----------------------------------------')
+        print('')
+       
+        for m in range(self.nMonitors):
+            fitx_m = (self.dMonitors_x[m]-1)*100
+            fity_m = (self.dMonitors_y[m]-1)*100
+            print('{} : x-> {} %  y-> {} %'.format(self.monitors[m],
+                                                 round(fitx_m,3),
+                                                 round(fity_m,3)))
+        print('')
+        print('-----------------------------------------')
+        print('-----------------------------------------')
+        print('')
+        print('Fit parameters differences')
+        print('')
+        print('-----------------------------------------')
+        print('-----------------------------------------')
+        print('')
+        for p in range(self.nParams):
+            print('{} : {} '.format(self.pList[p], round(self.dp0List[p],5)))
         
-    def optimize1(self, plot=True, singularMask=1e-4):
-        """
-        Computes the optimization scheme with help of the
-        function fitParameters and is able to plot the results.
-        It prints out the computed fit parameters for the corrector
-        kickers and the monitors.
-        @param plot is a boolean, if True, the horizontal and vertical
-               orbit response will be plotted together with the initial
-               MAD-X model and the fitted orbit response.
-        @param singularMask see function fitParameters()
-        """
-        L2 = []
+    def _plotFit(self, modelx0, modely0):
         kickers = list(self.kickers.keys())
         xlabels = []
-        monPos = []
+        monPos  = []
+        Mx      = np.transpose(self.ormMx)
+        My      = np.transpose(self.ormMy)
+        x = np.arange(len(Mx[2]))
+        for i in range (len(Mx[1])):
+            xlabels.append(kickers[int(Mx[1][i])])
+            if (Mx[1][i] == 0): monPos.append(i)
 
-        Mx = np.transpose(self.ormMx)
-        My = np.transpose(self.ormMy)
-
-        if(plot):
-            for i in range (len(Mx[1])):
-                xlabels.append(kickers[int(Mx[1][i])])
-                if (Mx[1][i] == 0): monPos.append(i)
-
-            x = np.linspace(0,len(Mx[2]),len(Mx[2]))
-            plt.figure(1)
-            plt.errorbar(x,Mx[2],yerr=Mx[3],marker='.',label='xMeasured')
-            plt.plot(x,Mx[4],label='xModel',marker='.')
-            locs, labels = plt.xticks()
-            plt.xticks(x, xlabels, rotation='vertical')
-            plt.legend(loc=0)
-            for i in monPos:
-                plt.axvline(i,linestyle='--')
-
-            plt.figure(2)
-            plt.errorbar(x,My[2],yerr=Mx[3],marker='.',label='yMeasured')
-            plt.plot(x,My[4],label='yModel',marker='.')
-            plt.legend(loc=0)
-            for i in monPos:
-                plt.axvline(i,linestyle='--')
-
-        kickerFits = []
-        monFits = []
-        kickNames = list(self.kickers.keys())
-        monNames  = list(self.monitors.keys())
-
-        monx = self.dp0[:self.nMonitors]
-        kickx = self.dp0[self.nMonitors:]
-        kickerFits.append(kickx)
-        monFits.append(monx)
-        chi20 = self.fitParameters(singularMask)
-        L2.append(chi20)
-        error = 1
-
-        while(error > 1e-10):
-            monx = self.dp0[:self.nMonitors]
-            kickx = self.dp0[self.nMonitors:]
-            kickerFits.append(kickx)
-            monFits.append(monx)
-            chi21 = self.fitParameters(singularMask)
-            error = abs(chi21 - chi20)
-            chi20 = chi21
-            L2.append(chi21)
-
-        kickerFits = np.transpose(kickerFits)
-        kFits = []
-        print("Kickers:")
-        for i in range(len(kickerFits)):
-            print(kickNames[i],' : ',round(sum(kickerFits[i]),4))
-            kFits.append(sum(kickerFits[i]))
-
-        monFits = np.transpose(monFits)
-        mFits = []
-        print("Monitors:")
-        for i in range(len(monFits)):
-            print(monNames[i]," : " ,round(sum(monFits[i]),4))
-            mFits.append(sum(monFits[i]))
-
-        Mx = np.transpose(self.ormMx)
-        My = np.transpose(self.ormMy)
-
-        if(plot):
-            plt.figure(1)
-            plt.plot(x,Mx[4],label='xFit',marker='.')
-            plt.ylabel(r'Horizontal orbit response [mm mrad$^{-1}$]')
-            plt.legend(loc=0)
-            plt.figure(2)
-            plt.plot(x,My[4],label='yFit',marker='.')
-            plt.legend(loc=0)
-            plt.show()
-
-            plt.plot(L2,marker='.')
-            plt.xlabel('Iteration number')
-            plt.ylabel(r'$||\vec{y}_1 - \vec{y}_0||_2$')
-            plt.yscale('log')
-            plt.show()
-
-        return np.array(mFits), np.array(kFits)
-
-    def optimize2(self, pList, plot=True, singularMask=1e-4, nIterations=1):
-        """
-        Computes the optimization scheme with help of the
-        function fitParameters and is able to plot the results.
-        It prints out the computed fit parameters for the corrector
-        kickers and the monitors.
-        It also takes into consideration a list of given lattice parameters
-        in the fit.
-        @param plot is a boolean, if True, the horizontal and vertical
-               orbit response will be plotted together with the initial
-               MAD-X model and the fitted orbit response.
-        @param singularMask see function fitParameters()
-        """
-        self.pList = pList
-        self.nParams = len(pList)
-        self.computedOrmdP()
-        self.computeOrm()
-        L2 = []
-
-        kickers = list(self.kickers.keys())
-        xlabels = []
-        monPos = []
-
-        Mx = np.transpose(self.ormMx)
-        My = np.transpose(self.ormMy)
-
-        if(plot):
-            for i in range (len(Mx[1])):
-                xlabels.append(kickers[int(Mx[1][i])])
-                if (Mx[1][i] == 0): monPos.append(i)
-
-            x = np.linspace(0,len(Mx[2]),len(Mx[2]))
-            plt.figure(1)
-            plt.errorbar(x,Mx[2],yerr=Mx[3],marker='.',label='xMeasured')
-            plt.plot(x,Mx[4],label='xModel',marker='.')
-            locs, labels = plt.xticks()
-            plt.xticks(x, xlabels, rotation='vertical')
-            plt.legend(loc=0)
-            for i in monPos:
-                plt.axvline(i,linestyle='--')
-
-            plt.figure(2)
-            plt.errorbar(x,My[2],yerr=Mx[3],marker='.',label='yMeasured')
-            plt.plot(x,My[4],label='yModel',marker='.')
-            plt.legend(loc=0)
-            for i in monPos:
-                plt.axvline(i,linestyle='--')
-
-        kickerFits = []
-        monFits = []
-        kickNames = list(self.kickers.keys())
-        monNames  = list(self.monitors.keys())
-
-        print('Number of fit parameters: ', self.nParams)
-        print('Number of monitors: ', len(monNames))
-        print('Number of kickers: ', len(kickNames))
-        print('Fitting model to data. This might take a while...')
-        error = 10000
-        iteration = 0
-        for iteration in range(nIterations):
-        #while( error > 1e-1 ):
-            print('Iteration ',iteration+1,' , ERROR = ', error)
-            error = self.fitParameters(singularMask)
-            L2.append(error)
-            monx = self.dp0[self.nParams:self.nParams+len(monNames)]
-            kickx = self.dp0[self.nParams+len(monNames):]
-            kickerFits.append(kickx)
-            monFits.append(monx)
-            self.computedOrmdP()
-            self.computeOrm()
-            #iteration += 1
-
-        kickerFits = np.transpose(kickerFits)
-        kFits = []
-        print("Kickers:")
-        for i in range(len(kickerFits)):
-            print(kickNames[i],' : ',round(sum(kickerFits[i]),4))
-            kFits.append(sum(kickerFits[i]))
-        print()
-
-        monFits = np.transpose(monFits)
-        mFits = []
-        print("Monitors:")
-        for i in range(len(monFits)):
-            print(monNames[i]," : " ,round(sum(monFits[i]),4))
-            mFits.append(sum(monFits[i]))
-        print()
-
-        print('Parameters:')
-        for i in range(len(self.pList)):
-            print(self.pList[i], ' : ', round(self.dp0[i],5))
-        print()
-
-        Mx = np.transpose(self.ormMx)
-        My = np.transpose(self.ormMy)
-
-        if(plot):
-            plt.figure(1)
-            plt.plot(x,Mx[4],label='xFit',marker='.')
-            plt.ylabel(r'Horizontal orbit response [mm mrad$^{-1}$]')
-            plt.legend(loc=0)
-            plt.figure(2)
-            plt.plot(x,My[4],label='yFit',marker='.')
-            plt.legend(loc=0)
-            plt.show()
-
-            plt.plot(L2,marker='.')
-            plt.xlabel('Iteration number')
-            plt.ylabel(r'$||\vec{y}_1 - \vec{y}_0||_2$')
-            plt.yscale('log')
-            plt.show()
-
-        return np.array(mFits), np.array(kFits)
+        plt.figure(1)
+        plt.errorbar(x,Mx[2],yerr=Mx[3],marker='.',label='xMeasured',linestyle='')
+        plt.plot(x,modelx0,label='xModel',marker='.')
+        plt.plot(x,Mx[4],label='xFit',marker='.')
+        plt.ylabel(r'Horizontal orbit response [mm mrad$^{-1}$]')
+        plt.legend(loc=0)
+        plt.tight_layout()
+        for i in range(len(monPos)):
+            plt.axvline(monPos[i],linestyle='--')
+            plt.text(monPos[i]+0.2, min(Mx[2]), self.monitors[i],
+                     rotation=90, alpha=0.5, fontsize=12)
+        
+        plt.figure(2)
+        plt.errorbar(x,My[2],yerr=Mx[3],marker='.',label='yMeasured',linestyle='')
+        plt.plot(x,modely0,label='yModel',marker='.')
+        plt.legend(loc=0)
+        plt.plot(x,My[4],label='yFit',marker='.')
+        plt.ylabel(r'Vertical orbit response [mm mrad$^{-1}$]')
+        plt.legend(loc=0)
+        plt.tight_layout()
+        locs, labels = plt.xticks()
+        plt.xticks(x, xlabels, rotation='vertical')
+        plt.legend(loc=0)
+        for i in range(len(monPos)):
+            plt.axvline(monPos[i],linestyle='--')
+            plt.text(monPos[i]+0.2, min(Mx[2]), self.monitors[i],
+                     rotation=90, alpha=0.5, fontsize=12)
+        plt.show()
