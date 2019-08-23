@@ -160,6 +160,7 @@ def preGantry():
         'kL_H3QD11',
         'kL_H3QD12',
         'kL_H3QD21',
+        'kL_H3QD22',
         'kL_B3QD11',
         'kL_B3QD12',
     ]
@@ -301,7 +302,7 @@ def transfer12():
                        readOrm=False, plotEachM=False)
     singMask = 1e4
     err      = 1e-3
-    maxIts   = 200
+    maxIts   = 100
     opt.fitErrors(pList_hht2, singularMask=singMask,
                   error=err,  maxIt=maxIts)
 
