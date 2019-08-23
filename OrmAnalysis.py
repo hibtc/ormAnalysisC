@@ -4,12 +4,10 @@ from yaml import safe_load
 import numpy as np
 import matplotlib.pyplot as plt
 
-# TODO: Corrected the bug in the dOrmdP
-
 class OrbitResponse:
 
     """
-    Computes the measured and the modeled orbit response matrix at a 
+    Computes the measured and the modeled orbit response matrix at a
     single monitor with the available kickers in the transfer line
 
     @param dataFile is the file path where the measured data is. It is
@@ -81,7 +79,7 @@ class OrbitResponse:
                     return seqName
         except:
             print('Sequence not found!')
-            
+
     def ormMeasured(self):
         """
         Computes the measured orbit responses at an specifical
@@ -102,7 +100,7 @@ class OrbitResponse:
             mean   = np.mean(dataBeam, axis = 0)
             stdDev = np.std (dataBeam, axis = 0) / np.sqrt(len(dataBeam))
             # Last two entries correspond to the beam envelope measurement.
-            # (That's why we just take the first two) 
+            # (That's why we just take the first two)
             beamMess.append(np.array(mean[:2]))
             beamMessErr.append(np.array(stdDev[:2]))
         orbitResponse    = []
@@ -198,7 +196,7 @@ class OrbitResponse:
                 madx.globals[pList[p]] += dpList[p]
             for kname in range(len(kickers)):
                 madx.globals[kickers[kname]] *= (dkickers[kname])
-            madx.globals[k] += kick   
+            madx.globals[k] += kick
             twiss2 = madx.twiss(sequence=self.sequence, RMatrix=True,
                                 alfx = -7.2739282, alfy = -0.23560719,
                                 betx = 44.404075,  bety = 3.8548009,
@@ -219,7 +217,7 @@ class OrbitResponse:
         list of parameters with a forward finite difference
         @param pList is the list of parameters the derivative should
                be computed to
-        @param dp0List are the absolute changes around the measurement 
+        @param dp0List are the absolute changes around the measurement
                nominal value for the parameter
         @param dp0 cannot be smaller than 1e-9 for numerical precision
                reasons!!! Going smaller changes drastically the computation.
@@ -384,6 +382,7 @@ class ORMOptimizer:
         self.Ax = 0
         self.Ay = 0
         # Needed for optimize2
+        self.singularMask = 100
         self.dp0 = np.zeros(self.nMonitors + self.nKickers)
         self.dOrmxdP = []
         self.dOrmydP = []
@@ -393,7 +392,7 @@ class ORMOptimizer:
         self.dKickers = np.ones(len(self.kickers))
         self.dMonitors_x = np.ones(self.nMonitors)
         self.dMonitors_y = np.ones(self.nMonitors)
-        
+
     def getMonitors(self):
         orbResponse = self.orbitResponseAnalyzer
         monitors = []
@@ -401,7 +400,7 @@ class ORMOptimizer:
             orbResponse.setData(measurement)
             monitors.append(orbResponse.getMonitor())
         return monitors
-            
+
     def initializeOrm(self, write=True, showPlots=False):
         """
         Computes the measured orbit response and the corresponding
@@ -451,10 +450,10 @@ class ORMOptimizer:
         dCij_y = (dCij_y[2]-dCij_y[4])/dCij_y[3]
         self.dCij_x = dCij_x
         self.dCij_y = dCij_y
-        
+
     def setKickers(self):
         """
-        This is for the case where we just read the data. 
+        This is for the case where we just read the data.
         We build a dictionary of kickers from the last monitor
         """
         ormA =  self.orbitResponseAnalyzer
@@ -493,7 +492,7 @@ class ORMOptimizer:
             Ay[i][mon_i] = -entryCij_y
             Ax[i][self.nMonitors + kick_j] = entryCij_x
             Ay[i][self.nMonitors + kick_j] = entryCij_y
-            
+
         if(len(self.dOrmxdP)):
             dOrmx = np.transpose(self.dOrmxdP)
             dOrmy = np.transpose(self.dOrmydP)
@@ -538,14 +537,14 @@ class ORMOptimizer:
         At_x = np.transpose(self.Ax)
         At_y = np.transpose(self.Ay)
         Bx   = np.matmul(At_x, self.Ax)
-        By   = np.matmul(At_y, self.Ay)    
+        By   = np.matmul(At_y, self.Ay)
         Bp_x = self._getPseudoInverse(Bx)
         Bp_y = self._getPseudoInverse(By)
         err_x = np.matmul(Bp_x, np.matmul(At_x, self.dCij_x))
         err_y = np.matmul(Bp_y, np.matmul(At_y, self.dCij_y))
         return err_x, err_y
-        
-    def _getPseudoInverse(self, B, singularMask=10000):
+
+    def _getPseudoInverse(self, B):
         """
         Internal computation. Just for style...
         @param singularMask controls the entries that will be taken into
@@ -553,7 +552,7 @@ class ORMOptimizer:
         """
         U, S, Vt = np.linalg.svd(B, full_matrices=False, compute_uv=True)
         for s in range(len(S)):
-            if S[s] < singularMask: S[s] = 10e30
+            if S[s] < self.singularMask: S[s] = 10e30
         Ut = np.transpose(U)
         V  = np.transpose(Vt)
         D  = 1/S
@@ -588,10 +587,10 @@ class ORMOptimizer:
         gmex = sum(self.dCij_x**2)
         gmey = sum(self.dCij_y**2)
         return gmex, gmey
-    
+
     def fitErrorsSimple(self, error=1e-9 ,plot=True, maxIt=100):
         """
-        Fits the errors until a user defined precision 
+        Fits the errors until a user defined precision
         is reached. Takes into consideration the Global Machine
         Error (gme)
         """
@@ -632,16 +631,17 @@ class ORMOptimizer:
         monErry   = erry[self.nParams:self.nParams+len(self.messFiles)]
         kickErry  = erry[self.nParams+len(self.messFiles):]
 
+        # I should implement a weighted average
         paramErr = (paramErrx + paramErry) / 2
         kicksErr = (kickErrx + kickErry) / 2
-        
+
         for i in range(len(self.kickers)):
             self.dKickers[i]   *= (1 + kicksErr[i])
         for i in range(self.nMonitors):
             self.dMonitors_x[i] *= (1 + monErrx[i])
             self.dMonitors_y[i] *= (1 + monErry[i])
         for i in range(self.nParams):
-            self.dp0List[i] += paramErry[i]
+            self.dp0List[i] += paramErr[i]
         orA = self.orbitResponseAnalyzer
         orbitResponse_x = []
         orbitResponse_y = []
@@ -661,12 +661,15 @@ class ORMOptimizer:
         for c in range(len(self.ormMx)):
             self.ormMx[c][4] = orbitResponse_x[c]
             self.ormMy[c][4] = orbitResponse_y[c]
-        
+
         for c in self.ormMx: c[4] /= self.dMonitors_x[int(c[0])]
         for c in self.ormMy: c[4] /= self.dMonitors_y[int(c[0])]
         self.setdCij()
-        
-    def fitErrors(self, pList):
+
+    def fitErrors(self, pList, singularMask=0,
+                  maxIt=30, error=1e-3):
+
+        if(singularMask): self.singularMask = singularMask
 
         print('-----------------------------------------')
         print('-----------------------------------------')
@@ -687,10 +690,8 @@ class ORMOptimizer:
         self.initializeAMat()
 
         converged = False
-        maxIt = 100
         it = 0
-        error = 1e-3
-        
+
         while (not converged and it < maxIt):
             gmex_old, gmey_old = self.getGlobalMachineError()
             print('    Iteration:   ', it+1)
@@ -704,15 +705,14 @@ class ORMOptimizer:
             converged = (abs(gmex_new - gmex_old) < error)
             it += 1
 
-        if(converged):
-            self._displayResultsNotSimple(it, gme, plot=True)
-            self._plotFit(modelx0,modely0)
+        self._displayResultsNotSimple(it, gme, converged, plot=True)
+        self._plotFit(modelx0,modely0)
 
     def setpList(self, pList):
         self.pList   = pList
         self.nParams = len(pList)
         self.dp0List = np.zeros(self.nParams)
-        
+
     def computedOrmdP(self, kickers=[], dKickers=[]):
         """
         Computes the orbit response matrix derivative
@@ -813,7 +813,7 @@ class ORMOptimizer:
         print('-----------------------------------------')
         print('')
 
-    def _displayResultsNotSimple(self, it, gme, plot=True):
+    def _displayResultsNotSimple(self, it, gme, converged, plot=True):
         gme = np.transpose(gme)
         if(plot):
             plt.plot(abs(gme[0][1:]-gme[0][:-1]),marker='.',label=r'$gme_x$')
@@ -827,7 +827,10 @@ class ORMOptimizer:
         print('-----------------------------------------')
         print('-----------------------------------------')
         print('')
-        print('            Fit converged')
+        if(converged):
+            print('            Fit converged')
+        else:
+            print('      Fit didnt converged')
         print('')
         print('-----------------------------------------')
         print('-----------------------------------------')
@@ -857,7 +860,7 @@ class ORMOptimizer:
         print('-----------------------------------------')
         print('-----------------------------------------')
         print('')
-       
+
         for m in range(self.nMonitors):
             fitx_m = (self.dMonitors_x[m]-1)*100
             fity_m = (self.dMonitors_y[m]-1)*100
@@ -875,7 +878,7 @@ class ORMOptimizer:
         print('')
         for p in range(self.nParams):
             print('{} : {} '.format(self.pList[p], round(self.dp0List[p],5)))
-        
+
     def _plotFit(self, modelx0, modely0):
         kickers = list(self.kickers.keys())
         xlabels = []
@@ -898,7 +901,7 @@ class ORMOptimizer:
             plt.axvline(monPos[i],linestyle='--')
             plt.text(monPos[i]+0.2, min(Mx[2]), self.monitors[i],
                      rotation=90, alpha=0.5, fontsize=12)
-        
+
         plt.figure(2)
         plt.errorbar(x,My[2],yerr=Mx[3],marker='.',label='yMeasured',linestyle='')
         plt.plot(x,modely0,label='yModel',marker='.')
