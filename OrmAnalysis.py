@@ -617,11 +617,9 @@ class ORMOptimizer:
             fitErrx   = abs(gmex_old - gmex_new)
             converged = (fitErrx < error)
             it += 1
-        if(converged):
-            self._displayResults(kickerErrFit,monxErrFit,monyErrFit,
-                                            it,gme)
-            self._plotFit(modelx0,modely0)
-        else: print('Simple fit did not converge')
+        self._displayResults(kickerErrFit,monxErrFit,monyErrFit,
+                             it, gme, converged)
+        self._plotFit(modelx0,modely0)
 
     def actualizeModel(self, errx, erry):
         paramErrx = errx[:self.nParams]
@@ -743,14 +741,14 @@ class ORMOptimizer:
         self.dOrmxdP = dormx
         self.dOrmydP = dormy
 
-    def _displayResults(self, kickerErrFit, monxErrFit, monyErrFit, it, gme,
-                        plot=False):
+    def _displayResults(self, kickerErrFit, monxErrFit, monyErrFit,
+                        it, gme, converged, plot=True):
         gme = np.transpose(gme)
         if(plot):
-            plt.plot(abs(gme[0][1:]-gme[0][:-1]),marker='.',label=r'$gme_x$')
-            plt.plot(abs(gme[1][1:]-gme[1][:-1]),marker='.',label=r'$gme_y$')
+            plt.plot(abs(gme[0][1:]-gme[0][:-1]),marker='.',label=r'$\zeta_x$')
+            plt.plot(abs(gme[1][1:]-gme[1][:-1]),marker='.',label=r'$\zeta_y$')
             plt.xlabel('Iteration')
-            plt.ylabel(r'Error (|GME$_{new}$ - GME$_{old}$|)')
+            plt.ylabel(r'|$\zeta_{i+1}$ - $\zeta_{i}$|)')
             plt.yscale('log')
             plt.legend()
             plt.show()
@@ -763,7 +761,10 @@ class ORMOptimizer:
         print('-----------------------------------------')
         print('-----------------------------------------')
         print('')
-        print('            Fit converged')
+        if(converged):
+            print('            Fit converged')
+        else:
+            print('      Fit didnt converged')
         print('')
         print('-----------------------------------------')
         print('-----------------------------------------')
@@ -772,6 +773,8 @@ class ORMOptimizer:
         print('Initial GME: x-> ', round(gme[0][0],3), ' y-> ', round(gme[1][0],3))
         print('')
         print('Final   GME: x-> ', round(gme[0][-1],3),' y-> ', round(gme[1][-1],3))
+        print('')
+        print('Singular value threshold: ', self.singularMask )
         print('')
         print('-----------------------------------------')
         print('-----------------------------------------')
@@ -816,10 +819,10 @@ class ORMOptimizer:
     def _displayResultsNotSimple(self, it, gme, converged, plot=True):
         gme = np.transpose(gme)
         if(plot):
-            plt.plot(abs(gme[0][1:]-gme[0][:-1]),marker='.',label=r'$gme_x$')
-            plt.plot(abs(gme[1][1:]-gme[1][:-1]),marker='.',label=r'$gme_y$')
-            plt.xlabel('Iteration')
-            plt.ylabel(r'Error (|GME$_{new}$ - GME$_{old}$|)')
+            plt.plot(abs(gme[0][1:]-gme[0][:-1]),marker='.',label=r'$\zeta_x$')
+            plt.plot(abs(gme[1][1:]-gme[1][:-1]),marker='.',label=r'$\zeta_y$')
+            plt.xlabel('Iteration',fontsize=12)
+            plt.ylabel(r'|$\zeta_{i+1}$ - $\zeta_{i}$|',fontsize=14)
             plt.yscale('log')
             plt.legend()
             plt.show()
@@ -839,6 +842,8 @@ class ORMOptimizer:
         print('Initial GME: x-> ', round(gme[0][0],3), ' y-> ', round(gme[1][0],3))
         print('')
         print('Final   GME: x-> ', round(gme[0][-1],3),' y-> ', round(gme[1][-1],3))
+        print('')
+        print('Singular value threshold: ', self.singularMask )
         print('')
         print('-----------------------------------------')
         print('-----------------------------------------')
@@ -876,8 +881,15 @@ class ORMOptimizer:
         print('-----------------------------------------')
         print('-----------------------------------------')
         print('')
+        ormA = self.orbitResponseAnalyzer
+        madx = ormA.madx
+        madx.call(file=ormA.madxModelFile, chdir=True)
+        madx.globals.update(ormA.data['model'])
         for p in range(self.nParams):
-            print('{} : {} '.format(self.pList[p], round(self.dp0List[p],5)))
+            percent = (madx.globals[self.pList[p]] + self.dp0List[p]) / \
+                      madx.globals[self.pList[p]]
+            percent = (percent - 1)*100
+            print('{} : {} %'.format(self.pList[p], round(percent,5)))
 
     def _plotFit(self, modelx0, modely0):
         kickers = list(self.kickers.keys())
@@ -891,10 +903,13 @@ class ORMOptimizer:
             if (Mx[1][i] == 0): monPos.append(i)
 
         plt.figure(1)
-        plt.errorbar(x,Mx[2],yerr=Mx[3],marker='.',label='xMeasured',linestyle='')
-        plt.plot(x,modelx0,label='xModel',marker='.')
-        plt.plot(x,Mx[4],label='xFit',marker='.')
-        plt.ylabel(r'Horizontal orbit response [mm mrad$^{-1}$]')
+        plt.errorbar(x,Mx[2],yerr=Mx[3],marker='.',label='Measured',
+                     linestyle='', markersize=10)
+        plt.plot(x,modelx0,label='Model',marker='', linewidth=2)
+        plt.xlim(-0.2, x[-1]+0.25)
+        plt.ylim(min(Mx[2])-2., max(Mx[2])+2.)
+        plt.plot(x,Mx[4],label='Fit',marker='',linewidth=1.5)
+        plt.ylabel(r'Horizontal orbit response [mm mrad$^{-1}$]',fontsize=14)
         plt.legend(loc=0)
         plt.tight_layout()
         for i in range(len(monPos)):
@@ -903,15 +918,17 @@ class ORMOptimizer:
                      rotation=90, alpha=0.5, fontsize=12)
 
         plt.figure(2)
-        plt.errorbar(x,My[2],yerr=Mx[3],marker='.',label='yMeasured',linestyle='')
-        plt.plot(x,modely0,label='yModel',marker='.')
-        plt.legend(loc=0)
-        plt.plot(x,My[4],label='yFit',marker='.')
-        plt.ylabel(r'Vertical orbit response [mm mrad$^{-1}$]')
+        plt.errorbar(x,My[2],yerr=Mx[3],marker='.',label='Measured',
+                     linestyle='',markersize=10)
+        plt.plot(x,modely0,label='Model',marker='', linewidth=2)
+        plt.xlim(-0.2, x[-1]+0.25)
+        plt.ylim(min(My[2])-2., max(My[2])+2.)
+        plt.plot(x,My[4],label='Fit',marker='', linewidth=1.5)
+        plt.ylabel(r'Vertical orbit response [mm mrad$^{-1}$]',fontsize=14)
         plt.legend(loc=0)
         plt.tight_layout()
         locs, labels = plt.xticks()
-        plt.xticks(x, xlabels, rotation='vertical')
+        plt.xticks(x, xlabels, rotation='vertical', fontsize=10)
         plt.legend(loc=0)
         for i in range(len(monPos)):
             plt.axvline(monPos[i],linestyle='--')
