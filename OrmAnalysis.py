@@ -158,8 +158,10 @@ class OrbitResponse:
             orbitResponse_y.append(cy)
         return orbitResponse_x, orbitResponse_y
 
-    def ormModelpList(self, pList, dpList, kickers, dkickers,
-                            kick=2e-4):
+    def ormModelpList(self, pList, dpList,
+                      kickers, dkickers,
+                      dmonx, dmony,
+                      kick=2e-4):
         """
         Computes the ORM and allows a user-defined list of
         parameters to be changed during the computation
@@ -180,7 +182,7 @@ class OrbitResponse:
         for p in range(len(pList)):
             madx.globals[pList[p]] += dpList[p]
         for k in range(len(kickers)):
-            madx.globals[kickers[k]] = dkickers[k]*madx.globals[kickers[k]]
+            madx.globals[kickers[k]] /= dkickers[k]
         twiss1 = madx.twiss(sequence=self.sequence, RMatrix=True,
                             alfx = -7.2739282, alfy = -0.23560719,
                             betx = 44.404075,  bety = 3.8548009,
@@ -195,7 +197,7 @@ class OrbitResponse:
             for p in range(len(pList)):
                 madx.globals[pList[p]] += dpList[p]
             for kname in range(len(kickers)):
-                madx.globals[kickers[kname]] *= (dkickers[kname])
+                madx.globals[kickers[kname]] /= (dkickers[kname])
             madx.globals[k] += kick
             twiss2 = madx.twiss(sequence=self.sequence, RMatrix=True,
                                 alfx = -7.2739282, alfy = -0.23560719,
@@ -205,8 +207,8 @@ class OrbitResponse:
             x2 = twiss2.x[iMonitor]
             y2 = twiss2.y[iMonitor]
             # Horizontal and vertical response
-            cx = (x2 - x1) / kick
-            cy = (y2 - y1) / kick
+            cx = (x2 - x1) / (kick * dmonx)
+            cy = (y2 - y1) / (kick * dmony)
             orbitResponse_x.append(cx)
             orbitResponse_y.append(cy)
         return np.array(orbitResponse_x), np.array(orbitResponse_y)
@@ -223,6 +225,7 @@ class OrbitResponse:
                reasons!!! Going smaller changes drastically the computation.
                Going up leaves the same results up to numerical precision.
         """
+        # UNUSED !!!
         dpList = np.array(dpList)
         ormMx1, ormMy1 = self.ormModelpList(pList, dpList, kick)
         dCx = []
@@ -238,12 +241,14 @@ class OrbitResponse:
             dCy.append(dCydP)
         return np.array(dCx), np.array(dCy)
 
-    def backwardDorm(self, pList, dpList, kick=2e-4, dp=1e-9):
+    def backwardDorm(self, pList, dpList, dmonx=1, dmony=1,
+                     kick=2e-4, dp=1e-9):
         """
         Backward finite difference (See forwardDorm for description)
         """
+        # UNUSED !!!
         dpList = np.array(dpList)
-        ormMx1, ormMy1 = self.ormModelpList(pList, dpList, kick)
+        ormMx1, ormMy1 = self.ormModelpList(pList, dpList, kick, dmonx)
         dCx = []
         dCy = []
         for param in range(len(pList)):
@@ -258,7 +263,7 @@ class OrbitResponse:
         return np.array(dCx), np.array(dCy)
 
     def centralDorm(self, pList, dpList, kickers=[], dkickers=[],
-                    kick=2e-4, dp=1e-8):
+                    dmonx=1, dmony=1, kick=2e-4, dp=1e-6):
         """
         Central finite difference. (See forwardDorm for description).
         This is the way to go.
@@ -274,9 +279,11 @@ class OrbitResponse:
             dpList_forw[param] += dp
             ormMxback, ormMyback = self.ormModelpList(pList, dpList_back,
                                                       kickers, dkickers,
+                                                      dmonx, dmony,
                                                       kick)
             ormMxforw, ormMyforw = self.ormModelpList(pList, dpList_forw,
                                                       kickers, dkickers,
+                                                      dmonx, dmony,
                                                       kick)
             dCxdP = (ormMxforw - ormMxback) / (2*dp)
             dCydP = (ormMyforw - ormMyback) / (2*dp)
@@ -401,7 +408,7 @@ class ORMOptimizer:
             monitors.append(orbResponse.getMonitor())
         return monitors
 
-    def initializeOrm(self, write=True, showPlots=False):
+    def initializeOrm(self, write=False, showPlots=False):
         """
         Computes the measured orbit response and the corresponding
         modeled response
@@ -645,13 +652,16 @@ class ORMOptimizer:
         orbitResponse_y = []
         for mon_i in range(len(self.messFiles)):
             measurement = self.messFiles[mon_i]
+            dmonx = self.dMonitors_x[mon_i]
+            dmony = self.dMonitors_y[mon_i]
             orA.setData(measurement)
             kickers = orA.kickers
             for k in kickers:
                 if k not in self.kickers: self.kickers[k] = len(self.kickers) + 1
             mModelx, mModely = orA.ormModelpList(self.pList, self.dp0List,
                                                  list(self.kickers.keys()),
-                                                      self.dKickers)
+                                                      self.dKickers,
+                                                 dmonx, dmony)
             for k_i in range(len(kickers)):
                 orbitResponse_x.append(mModelx[k_i])
                 orbitResponse_y.append(mModely[k_i])
@@ -693,14 +703,17 @@ class ORMOptimizer:
         while (not converged and it < maxIt):
             gmex_old, gmey_old = self.getGlobalMachineError()
             print('    Iteration:   ', it+1)
-            print('  GME: x-> {}  y-> {}'.format(round(gmex_old,3),round(gmey_old,3)))
+            gmex = round(gmex_old,3)
+            gmey = round(gmey_old,3)
+            gmexy  = round(gmex + gmey,3)
+            print('  GME: x-> {}  y-> {} sum -> {}'.format(gmex,gmey,gmexy))
             errx, erry = self.fitParameters()
             self.actualizeModel(errx,erry)
             gme.append(self.getGlobalMachineError())
             self.computedOrmdP(list(self.kickers.keys()),self.dKickers)
             self.initializeAMat()
             gmex_new, gmey_new = self.getGlobalMachineError()
-            converged = (abs(gmex_new - gmex_old) < error)
+            converged = (abs(gmex_new + gmey_new - gmex_old - gmey_old) < error)
             it += 1
 
         self._displayResultsNotSimple(it, gme, converged, plot=True)
@@ -719,11 +732,15 @@ class ORMOptimizer:
         dOrmy = []
         #Initialize dp0 with zeros
         if len(self.dp0List) == 0: self.dp0List = np.zeros(len(self.pList))
-        for measurement in self.messFiles:
+        for m in range(len(self.messFiles)):
+            measurement = self.messFiles[m]
+            dmonx = self.dMonitors_x[m]
+            dmony = self.dMonitors_y[m]
             ormA = self.orbitResponseAnalyzer
             ormA.setData(measurement)
             dormx, dormy = ormA.centralDorm(self.pList, self.dp0List,
-                                            kickers, dKickers)
+                                            kickers, dKickers,
+                                            dmonx, dmony)
             dOrmx.append(dormx)
             dOrmy.append(dormy)
         dormx = []
