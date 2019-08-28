@@ -124,7 +124,6 @@ def preGantry():
     ]
     # Third session
     prePath3 = '../ormData/ormMessdata/2019-05-11/ORM_Daten/'
-    # Transfer Line Daten ohne Gantry for the second session
     messFiles3 = [
         '2019-05-12_02-17-11_hht2_h1dg1g.orm_measurement.yml',
         '2019-05-12_02-21-21_hht2_h1dg2g.orm_measurement.yml',
@@ -164,46 +163,47 @@ def preGantry():
         'kL_B3QD11',
         'kL_B3QD12',
     ]
-    opt = ORMOptimizer(messFiles1, modelPath,
-                       readOrm=False, plotEachM=False)
-    singMask = 1e5
-    err      = 1e-3
+    opt = ORMOptimizer(messFiles4, modelPath,
+                       readOrm=False, plotEachM=False,
+                       savePath='../ormBericht/NotSimpleResults/hht3')
+    singMask = 1e7
+    err      = 1e-1
     maxIts   = 200
     opt.fitErrors(pList, singularMask=singMask,
-                  error=err,maxIt=maxIts)
+                  error=err, maxIt=maxIts)
 
 def gantry():
     
     from OrmAnalysis import ORMOptimizer
     modelPath = 'hht3/run.madx'
     # First session
-    prePath1 ="../ormData/ormMessdata/2018-10-20-orm_measurements/M8-E108-F1-I9-G1/"
-    messFiles1 = [
-        '2018-10-21_04-23-18_hht3_h1dg1g.orm_measurement.yml',
-        '2018-10-21_04-16-30_hht3_h1dg2g.orm_measurement.yml',
-        '2018-10-21_04-08-39_hht3_h2dg2g.orm_measurement.yml',
-        '2018-10-21_03-54-09_hht3_h3dg3g.orm_measurement.yml',
-        '2018-10-21_03-38-51_hht3_b3dg2g.orm_measurement.yml',
-        '2018-10-21_03-21-09_hht3_b3dg3g.orm_measurement.yml',
-        '2018-10-21_02-50-02_hht3_g3dg3g.orm_measurement.yml',
-        #'2018-10-21_02-25-45_hht3_g3dg5g.orm_measurement.yml',
-        #'2018-10-21_01-52-39_hht3_t3df1.orm_measurement.yml',
-    ]
-    #opt = ORMOptimizer(messFiles1, modelPath,
-    #                   readOrm=False, plotEachM=False)
-    #opt.fitErrorsSimple()
+    prePath = '../ormData/ormMessdata/10-06-2019/'
+    messFiles = [
+        '2019-06-10_08-31-35_hht3_h1dg1g.orm_measurement.yml',
+        '2019-06-10_08-36-56_hht3_h1dg2g.orm_measurement.yml',
+        '2019-06-10_08-48-04_hht3_h2dg2g.orm_measurement.yml',
+        '2019-06-10_09-00-22_hht3_h3dg3g.orm_measurement.yml',
+        '2019-06-10_09-20-44_hht3_b3dg2g.orm_measurement.yml',
+        '2019-06-10_09-44-26_hht3_b3dg3g.orm_measurement.yml',
+        '2019-06-10_10-10-58_hht3_g3dg3g.orm_measurement.yml',
+        '2019-06-10_10-41-00_hht3_g3dg5g.orm_measurement.yml',
+        '2019-06-10_11-13-49_hht3_t3dg2g.orm_measurement.yml',
+        '2019-06-10_11-33-56_hht3_t3df1.orm_measurement.yml',
+        ]
+    for i in range(len(messFiles)): messFiles[i] = prePath + messFiles[i]
     pList =  [
-        'kL_H1QD11',
-        'kL_H1QD12',
-        'kL_H2QT11',
-        'kL_H2QT12',
-        'kL_H2QT13',
-        'kL_H3QD11',
-        'kL_H3QD12',
-        'kL_H3QD21',
-        'kL_H3QD21',
-        'kL_B3QD11',
-        'kL_B3QD12',
+        #'kL_H1QD11',
+        #'kL_H1QD12',
+        #'kL_H2QT11',
+        #'kL_H2QT12',
+        #'kL_H2QT13',
+        #'kL_H3QD11',
+        #'kL_H3QD12',
+        #'kL_H3QD21',
+        #'kL_H3QD22',
+        #'kL_B3QD11',
+        #'kL_B3QD12',
+        #'gantry_angle',
         'kL_G3QD11',
         'kL_G3QD12',
         'kL_G3QD21',
@@ -213,28 +213,21 @@ def gantry():
         'kL_EFG_G3QD41',
         'kL_EFG_G3QD42',
     ]
-    opt = ORMOptimizer(messFiles1, modelPath,
-                       readOrm=False, plotEachM=False)
-    #opt.fitErrorsSimple()
+    opt = ORMOptimizer(messFiles, modelPath,
+                       readOrm=False, plotEachM=False,
+                       savePath='../ormBericht/NotSimpleResults/gantry')
     singMask = 1e6
     err      = 1e-1
-    maxIts   = 5
+    maxIts   = 100
+    #opt.fitErrorsSimple(singularMask=singMask)
     opt.fitErrors(pList, singularMask=singMask,
                   error=err,maxIt=maxIts)
     
-def transfer12():
+def fit_hht2():
+    
     from OrmAnalysis import ORMOptimizer, OrbitResponse
     prePath = '../ormData/ormMessdata/10-06-2019/'
-    modelPath_hht1 = '../hit_models/hht1/run.madx'
     modelPath_hht2 = '../hit_models/hht2/run.madx'
-    hht1 = [
-        '2019-06-10_12-08-47_hht1_h1dg1g.orm_measurement.yml',
-        '2019-06-10_12-12-52_hht1_h1dg2g.orm_measurement.yml',
-        '2019-06-10_12-27-49_hht1_b1dg2g.orm_measurement.yml',
-        '2019-06-10_12-44-54_hht1_b1dg3g.orm_measurement.yml',
-        '2019-06-10_13-04-07_hht1_t1dg2g.orm_measurement.yml',
-        #'2019-06-10_13-17-21_hht1_t1df1.orm_measurement.yml',
-    ]
     hht2 = [
         '2019-06-10_13-35-08_hht2_h1dg1g.orm_measurement.yml',
         '2019-06-10_13-37-35_hht2_h1dg2g.orm_measurement.yml',
@@ -244,19 +237,12 @@ def transfer12():
         '2019-06-10_14-08-29_hht2_t2dg2g.orm_measurement.yml',
         '2019-06-10_14-18-50_hht2_t2df1.orm_measurement.yml',
     ]
-    for i in range(len(hht1)): hht1[i] = prePath + hht1[i]
+    
     for i in range(len(hht2)): hht2[i] = prePath + hht2[i]
     #opt = ORMOptimizer(hht2, modelPath,
     #                   readOrm=False, plotEachM=False)
     #opt.fitErrorsSimple()
-    pList_hht1 =  [
-        'kL_H1QD11',
-        'kL_H1QD12',
-        'kL_B1QD11',
-        'kL_B1QD12',
-        'kL_B1QD21',
-        'kL_B1QD22',
-    ]
+   
     pList_hht2 =  [
         'kL_H1QD11',
         'kL_H1QD12',
@@ -268,6 +254,35 @@ def transfer12():
         'kL_B2QD21',
         'kL_B2QD22',
     ]
+    opt = ORMOptimizer(hht2, modelPath_hht2,
+                       readOrm=False, plotEachM=False)
+    singMask = 1e6
+    err      = 1e-1
+    maxIts   = 200
+    opt.fitErrors(pList_hht2, singularMask=singMask,
+                  error=err,  maxIt=maxIts)
+
+def fit_hht1():
+    from OrmAnalysis import ORMOptimizer, OrbitResponse
+    prePath = '../ormData/ormMessdata/10-06-2019/'
+    modelPath_hht1 = '../hit_models/hht1/run.madx'
+    hht1 = [
+        '2019-06-10_12-08-47_hht1_h1dg1g.orm_measurement.yml',
+        '2019-06-10_12-12-52_hht1_h1dg2g.orm_measurement.yml',
+        '2019-06-10_12-27-49_hht1_b1dg2g.orm_measurement.yml',
+        '2019-06-10_12-44-54_hht1_b1dg3g.orm_measurement.yml',
+        '2019-06-10_13-04-07_hht1_t1dg2g.orm_measurement.yml',
+        #'2019-06-10_13-17-21_hht1_t1df1.orm_measurement.yml',
+    ]
+    for i in range(len(hht1)): hht1[i] = prePath + hht1[i]
+    pList_hht1 =  [
+         'kL_H1QD11',
+         'kL_H1QD12',
+         'kL_B1QD11',
+         'kL_B1QD12',
+         'kL_B1QD21',
+         'kL_B1QD22',
+     ]
     opt = ORMOptimizer(hht1, modelPath_hht1,
                        readOrm=False, plotEachM=False)
     singMask = 1e5
@@ -285,14 +300,14 @@ def testFit():
     messFiles1 = [
         '2018-10-21_04-23-18_hht3_h1dg1g.orm_measurement.yml',
         '2018-10-21_04-16-30_hht3_h1dg2g.orm_measurement.yml',
-        '2018-10-21_04-08-39_hht3_h2dg2g.orm_measurement.yml',
-        '2018-10-21_03-54-09_hht3_h3dg3g.orm_measurement.yml',
+        #'2018-10-21_04-08-39_hht3_h2dg2g.orm_measurement.yml',
+        #'2018-10-21_03-54-09_hht3_h3dg3g.orm_measurement.yml',
         ]
     for i in range(len(messFiles1)): messFiles1[i] = prePath1 + messFiles1[i]
     pList =  ['kL_H1QD11', 'kL_H1QD12']
     #dpList = [0.]
     opt = ORMOptimizer(messFiles1, modelPath,
-                       readOrm=False, plotEachM=False)
+                       readOrm=False, plotEachM=False,savePath='../ormBericht/NotSimpleResults/hht3')
     #opt.fitErrorsSimple()
     singMask = 1e4
     err      = 1e-3
@@ -300,7 +315,8 @@ def testFit():
     opt.fitErrors(pList, singularMask=singMask,
                   error=err,  maxIt=maxIts)
 
-#transfer12()
+#fit_hht1()
+#fit_hht2()
 #preGantry()
 gantry()
 #testFit()

@@ -190,7 +190,8 @@ class OrbitResponse:
                             px = self.dpx, py = self.dpy)
         x1 = twiss1.x[iMonitor]
         y1 = twiss1.y[iMonitor]
-        for k in self.kickers:
+        for k_i in range(len(self.kickers)):
+            k = self.kickers[k_i]
             madx.globals.update(self.data['model'])
             # We update the model given the parameter list
             # before we compute the Orbit Response
@@ -198,7 +199,10 @@ class OrbitResponse:
                 madx.globals[pList[p]] += dpList[p]
             for kname in range(len(kickers)):
                 madx.globals[kickers[kname]] /= (dkickers[kname])
-            madx.globals[k] += kick
+            if len(dkickers):    
+                madx.globals[k] = madx.globals[k] + kick/dkickers[k_i]
+            else:
+                madx.globals[k] += kick
             twiss2 = madx.twiss(sequence=self.sequence, RMatrix=True,
                                 alfx = -7.2739282, alfy = -0.23560719,
                                 betx = 44.404075,  bety = 3.8548009,
@@ -367,7 +371,8 @@ class OrbitResponse:
 
 class ORMOptimizer:
 
-    def __init__(self, messFiles, madxFile, readOrm=False, plotEachM=True):
+    def __init__(self, messFiles, madxFile,
+                 readOrm=False, plotEachM=True, savePath='.'):
         self.messFiles = messFiles
         self.madxFile  = madxFile
         self.orbitResponseAnalyzer = OrbitResponse(messFiles[0], madxFile)
@@ -375,13 +380,14 @@ class ORMOptimizer:
         self.kickers   = {}
         self.nMonitors = len(self.monitors)
         self.nParams   = 0
+        self.savePath  = savePath
         # We can spare some time if the ORM has already been computed
         # ormMx stands for Orbit Response Matrix Measurement in x-plane
         if(readOrm):
             self.ormMx, self.ormMy = self.readMessOrm()
             self.setKickers()
         else:
-            self.ormMx, self.ormMy = self.initializeOrm(True, plotEachM)
+            self.ormMx, self.ormMy = self.initializeOrm(False, plotEachM)
         self.nKickers = len(self.kickers)
         self.dCij_x = 0
         self.dCij_y = 0
@@ -595,12 +601,13 @@ class ORMOptimizer:
         gmey = sum(self.dCij_y**2)
         return gmex, gmey
 
-    def fitErrorsSimple(self, error=1e-9 ,plot=True, maxIt=100):
+    def fitErrorsSimple(self, error=1e-9, plot=True, maxIt=100, singularMask=0):
         """
         Fits the errors until a user defined precision
         is reached. Takes into consideration the Global Machine
         Error (gme)
         """
+        if(singularMask): self.singularMask = singularMask
         self.initializeAMat()
         gme = [self.getGlobalMachineError()]
         fitErrx, fitErry = self.getGlobalMachineError()
@@ -669,9 +676,6 @@ class ORMOptimizer:
         for c in range(len(self.ormMx)):
             self.ormMx[c][4] = orbitResponse_x[c]
             self.ormMy[c][4] = orbitResponse_y[c]
-
-        for c in self.ormMx: c[4] /= self.dMonitors_x[int(c[0])]
-        for c in self.ormMy: c[4] /= self.dMonitors_y[int(c[0])]
         self.setdCij()
 
     def fitErrors(self, pList, singularMask=0,
@@ -952,3 +956,15 @@ class ORMOptimizer:
             plt.text(monPos[i]+0.2, min(Mx[2]), self.monitors[i],
                      rotation=90, alpha=0.5, fontsize=12)
         plt.show()
+        ormMx = self.ormMx
+        ormMy = self.ormMy
+        for i in range(len(self.ormMx)):
+            ormMx[i]=np.append(ormMx[i], modelx0[i])
+            ormMy[i]=np.append(ormMy[i], modely0[i])
+        head = 'Monitor  Kicker   orm   dorm   madxOrm  fitOrm'
+        np.savetxt('{}/ormx.txt'.format(self.savePath), ormMx,
+                   fmt=['%i','%i','%e', '%e','%e','%e'],
+                   delimiter='  ', header=head)
+        np.savetxt('{}/ormy.txt'.format(self.savePath),
+                   ormMy, fmt=['%i','%i','%e', '%e','%e','%e'],
+                   delimiter='  ', header=head)
