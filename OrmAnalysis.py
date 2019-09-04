@@ -32,6 +32,12 @@ class OrbitResponse:
         self.dy = 1.0e-4
         self.dpy = 1.0e-6
 
+        # Initial twiss parameter
+        self.alfax = -7.2739282
+        self.alfay = -0.23560719
+        self.betax  = 44.404075
+        self.betay  = 3.8548009 
+
     def readData(self, dataFile):
         with open(dataFile) as f: data = safe_load(f)
         # Normal ordering for kickers.
@@ -133,10 +139,10 @@ class OrbitResponse:
 
         madx.globals.update(self.data['model'])
         twiss0 = madx.twiss(sequence=self.sequence, RMatrix=True,
-                            alfx = -7.2739282, alfy = -0.23560719,
-                            betx = 44.404075,  bety = 3.8548009,
-                            x = self.dx, y = self.dy,
-                            px = self.dpx, py = self.dpy)
+                            alfx=self.alfax, alfy=self.alfay,
+                            betx=self.betax, bety=self.betay,
+                            x=self.dx, y=self.dy,
+                            px=self.dpx, py=self.dpy)
         x0 = twiss0.x[iMonitor]
         y0 = twiss0.y[iMonitor]
         orbitResponse_x = []
@@ -145,10 +151,10 @@ class OrbitResponse:
             madx.globals.update(self.data['model'])
             madx.globals[k] += kick
             twiss1 = madx.twiss(sequence=self.sequence, RMatrix=True,
-                                alfx = -7.2739282, alfy = -0.23560719,
-                                betx = 44.404075,  bety = 3.8548009,
-                                x = self.dx, y = self.dy,
-                                px = self.dpx, py = self.dpy)
+                                alfx=self.alfax, alfy=self.alfay,
+                                betx=self.betax, bety=self.betay,
+                                x=self.dx, y=self.dy,
+                                px=self.dpx, py=self.dpy)
             x1 = twiss1.x[iMonitor]
             y1 = twiss1.y[iMonitor]
             # Horizontal and vertical response
@@ -184,30 +190,27 @@ class OrbitResponse:
         for k in range(len(kickers)):
             madx.globals[kickers[k]] /= dkickers[k]
         twiss1 = madx.twiss(sequence=self.sequence, RMatrix=True,
-                            alfx = -7.2739282, alfy = -0.23560719,
-                            betx = 44.404075,  bety = 3.8548009,
-                            x = self.dx, y = self.dy,
-                            px = self.dpx, py = self.dpy)
+                            alfx=self.alfax, alfy=self.alfay,
+                            betx=self.betax, bety=self.betay,
+                            x=self.dx, y=self.dy,
+                            px=self.dpx, py=self.dpy)
         x1 = twiss1.x[iMonitor]
         y1 = twiss1.y[iMonitor]
         for k_i in range(len(self.kickers)):
             k = self.kickers[k_i]
             madx.globals.update(self.data['model'])
-            # We update the model given the parameter list
-            # before we compute the Orbit Response
+            # We update the model again. (To reset the Twiss command)
             for p in range(len(pList)):
                 madx.globals[pList[p]] += dpList[p]
             for kname in range(len(kickers)):
                 madx.globals[kickers[kname]] /= (dkickers[kname])
-            if len(dkickers):    
-                madx.globals[k] = madx.globals[k] + kick/dkickers[k_i]
-            else:
-                madx.globals[k] += kick
+            if len(dkickers): madx.globals[k] = madx.globals[k] + kick/dkickers[k_i]
+            else: madx.globals[k] += kick
             twiss2 = madx.twiss(sequence=self.sequence, RMatrix=True,
-                                alfx = -7.2739282, alfy = -0.23560719,
-                                betx = 44.404075,  bety = 3.8548009,
-                                x = self.dx, y = self.dy,
-                                px = self.dpx, py = self.dpy)
+                                alfx=self.alfax, alfy=self.alfay,
+                                betx=self.betax, bety=self.betay,
+                                x=self.dx, y=self.dy,
+                                px=self.dpx, py=self.dpy)
             x2 = twiss2.x[iMonitor]
             y2 = twiss2.y[iMonitor]
             # Horizontal and vertical response
@@ -217,60 +220,10 @@ class OrbitResponse:
             orbitResponse_y.append(cy)
         return np.array(orbitResponse_x), np.array(orbitResponse_y)
 
-    def forwardDorm(self, pList, dpList, kick=2e-4, dp=1e-9):
-        """
-        Computes the orbit response derivative for a given
-        list of parameters with a forward finite difference
-        @param pList is the list of parameters the derivative should
-               be computed to
-        @param dp0List are the absolute changes around the measurement
-               nominal value for the parameter
-        @param dp0 cannot be smaller than 1e-9 for numerical precision
-               reasons!!! Going smaller changes drastically the computation.
-               Going up leaves the same results up to numerical precision.
-        """
-        # UNUSED !!!
-        dpList = np.array(dpList)
-        ormMx1, ormMy1 = self.ormModelpList(pList, dpList, kick)
-        dCx = []
-        dCy = []
-        for param in range(len(pList)):
-            # Working copy of the parameter list
-            dpList_cp = np.array(dpList)
-            dpList_cp[param] += dp
-            ormMx2, ormMy2 = self.ormModelpList(pList, dpList_cp, kick)
-            dCxdP = (ormMx2 - ormMx1) / dp
-            dCydP = (ormMy2 - ormMy1) / dp
-            dCx.append(dCxdP)
-            dCy.append(dCydP)
-        return np.array(dCx), np.array(dCy)
-
-    def backwardDorm(self, pList, dpList, dmonx=1, dmony=1,
-                     kick=2e-4, dp=1e-9):
-        """
-        Backward finite difference (See forwardDorm for description)
-        """
-        # UNUSED !!!
-        dpList = np.array(dpList)
-        ormMx1, ormMy1 = self.ormModelpList(pList, dpList, kick, dmonx)
-        dCx = []
-        dCy = []
-        for param in range(len(pList)):
-            # Working copy of the parameter list
-            dpList_cp = np.array(dpList)
-            dpList_cp[param] -= dp
-            ormMx2, ormMy2 = self.ormModelpList(pList, dpList_cp, kick)
-            dCxdP = (ormMx1 - ormMx2) / dp
-            dCydP = (ormMy1 - ormMy2) / dp
-            dCx.append(dCxdP)
-            dCy.append(dCydP)
-        return np.array(dCx), np.array(dCy)
-
     def centralDorm(self, pList, dpList, kickers=[], dkickers=[],
-                    dmonx=1, dmony=1, kick=2e-4, dp=1e-6):
+                    dmonx=1, dmony=1, kick=2e-4, dp=1e-5):
         """
-        Central finite difference. (See forwardDorm for description).
-        This is the way to go.
+        Central finite difference
         """
         dpList = np.array(dpList)
         dCx = []
@@ -664,7 +617,7 @@ class ORMOptimizer:
             orA.setData(measurement)
             kickers = orA.kickers
             for k in kickers:
-                if k not in self.kickers: self.kickers[k] = len(self.kickers) + 1
+                if k not in self.kickers: self.kickers[k]=len(self.kickers) + 1
             mModelx, mModely = orA.ormModelpList(self.pList, self.dp0List,
                                                  list(self.kickers.keys()),
                                                       self.dKickers,
@@ -679,10 +632,9 @@ class ORMOptimizer:
         self.setdCij()
 
     def fitErrors(self, pList, singularMask=0,
-                  maxIt=30, error=1e-3):
-
+                  maxIt=30, error=1e-3, continueFit=False):
+        
         if(singularMask): self.singularMask = singularMask
-
         print('-----------------------------------------')
         print('-----------------------------------------')
         print('')
@@ -695,13 +647,33 @@ class ORMOptimizer:
         ormMy   = np.transpose(self.ormMy)
         modely0 = ormMy[4]
         modelx0 = ormMx[4]
-
-        gme = [self.getGlobalMachineError()]
-        self.setpList(pList)
-        self.computedOrmdP()
-        self.initializeAMat()
-
-        converged = False
+        
+        if(continueFit):
+            
+            print()
+            print('      Continue fitting')
+            print()
+            self.dkickers = np.load('dkickers.npy')
+            self.dp0List = np.load('dp0List.npy')
+            self.dmonx = np.load('dmonx.npy')
+            self.dmony = np.load('dmony.npy')
+            errx = np.load('errx.npy')
+            erry = np.load('erry.npy')
+            self.actualizeModel(errx,erry)
+            gmex_old, gmey_old = self.getGlobalMachineError()
+            gme = [self.getGlobalMachineError()]
+            gme.append(self.getGlobalMachineError())
+            self.computedOrmdP(list(self.kickers.keys()),self.dKickers)
+            self.initializeAMat()
+            self.actualizeModel(errx,erry)
+            gmex_new, gmey_new = self.getGlobalMachineError()
+            converged = (abs(gmex_new + gmey_new - gmex_old - gmey_old) < error)
+        else:
+            gme = [self.getGlobalMachineError()]
+            self.setpList(pList)
+            self.computedOrmdP()
+            self.initializeAMat()
+            converged = False
         it = 0
 
         while (not converged and it < maxIt):
@@ -720,6 +692,12 @@ class ORMOptimizer:
             converged = (abs(gmex_new + gmey_new - gmex_old - gmey_old) < error)
             it += 1
 
+        np.save('errx', errx)
+        np.save('erry', erry)
+        np.save('dp0List', self.dp0List)
+        np.save('dmonx',   self.dMonitors_x)
+        np.save('dmony',   self.dMonitors_y)
+        np.save('dkickers',self.dKickers)
         self._displayResultsNotSimple(it, gme, converged, plot=True)
         self._plotFit(modelx0,modely0)
 
@@ -860,9 +838,13 @@ class ORMOptimizer:
         print('-----------------------------------------')
         print('Number of iterations: ', it)
         print('')
-        print('Initial GME: x-> ', round(gme[0][0],3), ' y-> ', round(gme[1][0],3))
+        print('Initial GME: x-> ', round(gme[0][0],2),
+              ' y-> ',  round(gme[1][0],2) ,
+              ' sum-> ',round(gme[0][0]+gme[1][0],2))
         print('')
-        print('Final   GME: x-> ', round(gme[0][-1],3),' y-> ', round(gme[1][-1],3))
+        print('Final   GME: x-> ', round(gme[0][-1],2),
+              ' y-> ', round(gme[1][-1],2),
+              'sum->', round(gme[1][-1]+gme[0][-1],2))
         print('')
         print('Singular value threshold: ', self.singularMask )
         print('')

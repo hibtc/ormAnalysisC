@@ -216,7 +216,7 @@ def gantry():
     opt = ORMOptimizer(messFiles, modelPath,
                        readOrm=False, plotEachM=False,
                        savePath='../ormBericht/NotSimpleResults/gantry')
-    singMask = 1e6
+    singMask = 1e7
     err      = 1e-1
     maxIts   = 100
     #opt.fitErrorsSimple(singularMask=singMask)
@@ -307,16 +307,19 @@ def testFit():
     pList =  ['kL_H1QD11', 'kL_H1QD12']
     #dpList = [0.]
     opt = ORMOptimizer(messFiles1, modelPath,
-                       readOrm=False, plotEachM=False,savePath='../ormBericht/NotSimpleResults/hht3')
+                       readOrm=False, plotEachM=False,
+                       savePath='.')
     #opt.fitErrorsSimple()
-    singMask = 1e4
+    singMask = 1e3
     err      = 1e-3
     maxIts   = 50
     opt.fitErrors(pList, singularMask=singMask,
-                  error=err,  maxIt=maxIts)
+                  error=err,  maxIt=maxIts,
+                  continueFit=True
+    )
 
 #fit_hht1()
 #fit_hht2()
 #preGantry()
-gantry()
-#testFit()
+#gantry()
+testFit()
