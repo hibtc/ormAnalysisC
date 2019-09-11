@@ -27,22 +27,24 @@ class OrbitResponse:
 
         # This are the initial conditions for the Twiss Module of MAD-X
         # there doesn't seem to be a strong dependence on them
-        self.dx = 1.0e-4
+        self.dx  = 1.0e-4
         self.dpx = 1.0e-6
-        self.dy = 1.0e-4
+        self.dy  = 1.0e-4
         self.dpy = 1.0e-6
 
-        # Initial twiss parameter
+        # Initial twiss parameters
         self.alfax = -7.2739282
         self.alfay = -0.23560719
-        self.betax  = 44.404075
-        self.betay  = 3.8548009 
+        self.betax = 44.404075
+        self.betay = 3.8548009 
 
     def readData(self, dataFile):
+        """
+        Normal ordering for kickers.
+        Namely, according to their position s
+        and in increasing order
+        """
         with open(dataFile) as f: data = safe_load(f)
-        # Normal ordering for kickers.
-        # Namely, according to their position s
-        # and in increasing order
         knobs = data['knobs']
         data['records'] = sorted( data['records'],
                                   key=lambda record: -1 if not record['optics']
@@ -185,10 +187,8 @@ class OrbitResponse:
         madx.globals.update(self.data['model'])
         # We update the model given the parameter list
         # before we compute the Orbit Response
-        for p in range(len(pList)):
-            madx.globals[pList[p]] += dpList[p]
-        for k in range(len(kickers)):
-            madx.globals[kickers[k]] /= dkickers[k]
+        for p in range(len(pList)):   madx.globals[pList[p]] += dpList[p]
+        for k in range(len(kickers)): madx.globals[kickers[k]] /= dkickers[k]
         twiss1 = madx.twiss(sequence=self.sequence, RMatrix=True,
                             alfx=self.alfax, alfy=self.alfay,
                             betx=self.betax, bety=self.betay,
@@ -200,10 +200,8 @@ class OrbitResponse:
             k = self.kickers[k_i]
             madx.globals.update(self.data['model'])
             # We update the model again. (To reset the Twiss command)
-            for p in range(len(pList)):
-                madx.globals[pList[p]] += dpList[p]
-            for kname in range(len(kickers)):
-                madx.globals[kickers[kname]] /= (dkickers[kname])
+            for p in range(len(pList)): madx.globals[pList[p]] += dpList[p]
+            for kname in range(len(kickers)): madx.globals[kickers[kname]] /= (dkickers[kname])
             if len(dkickers): madx.globals[k] = madx.globals[k] + kick/dkickers[k_i]
             else: madx.globals[k] += kick
             twiss2 = madx.twiss(sequence=self.sequence, RMatrix=True,
@@ -275,14 +273,14 @@ class OrbitResponse:
         self._plotData(y1, dy1, y2, dy2, ormMx, ormMy)
         if(messFile2!=''):
             self._plotData(y12, dy12, y22, dy22,
-                          ormMx, ormMy,plotModel=False)
+                          ormMx, ormMy, plotModel=False)
         plt.show()
         plt.clf()
         plt.cla()
         plt.close()
 
     def _plotData(self, y1, dy1, y2, dy2, ormMx, ormMy,
-                 save = False, plotModel = True):
+                 save=False, plotModel=True):
         """
         Just for inner functionality
         """
@@ -334,27 +332,21 @@ class ORMOptimizer:
         self.nMonitors = len(self.monitors)
         self.nParams   = 0
         self.savePath  = savePath
-        # We can spare some time if the ORM has already been computed
-        # ormMx stands for Orbit Response Matrix Measurement in x-plane
-        if(readOrm):
-            self.ormMx, self.ormMy = self.readMessOrm()
-            self.setKickers()
-        else:
-            self.ormMx, self.ormMy = self.initializeOrm(False, plotEachM)
+        self.ormMx, self.ormMy = self.initializeOrm(False)
         self.nKickers = len(self.kickers)
         self.dCij_x = 0
         self.dCij_y = 0
         self.setdCij()
         self.Ax = 0
         self.Ay = 0
-        # Needed for optimize2
+        # Needed for the fit
         self.singularMask = 100
         self.dp0 = np.zeros(self.nMonitors + self.nKickers)
         self.dOrmxdP = []
         self.dOrmydP = []
-        self.pList = []
+        self.pList   = []
         self.dp0List = []
-        self.dParams  = []
+        self.dParams = []
         self.dKickers = np.ones(len(self.kickers))
         self.dMonitors_x = np.ones(self.nMonitors)
         self.dMonitors_y = np.ones(self.nMonitors)
@@ -367,7 +359,7 @@ class ORMOptimizer:
             monitors.append(orbResponse.getMonitor())
         return monitors
 
-    def initializeOrm(self, write=False, showPlots=False):
+    def initializeOrm(self, showPlots=False):
         """
         Computes the measured orbit response and the corresponding
         modeled response
@@ -395,12 +387,6 @@ class ORMOptimizer:
             for k_i in range(len(kickers)):
                 orbitResponse_x.append([mon_i, k_i, mMx[k_i], dmMx[k_i], mModelx[k_i]])
                 orbitResponse_y.append([mon_i, k_i, mMy[k_i], dmMy[k_i], mModely[k_i]])
-        if(write):
-            head = 'Monitor  Kicker   orm   dorm   madxOrm'
-            np.savetxt('ormx.txt',orbitResponse_x, fmt=['%i','%i','%e', '%e','%e'],
-                       delimiter='  ', header=head)
-            np.savetxt('ormy.txt',orbitResponse_y, fmt=['%i','%i','%e', '%e','%e'],
-                       delimiter='  ', header=head)
         return orbitResponse_x, orbitResponse_y
 
     def setdCij(self):
@@ -427,14 +413,6 @@ class ORMOptimizer:
         ks   =  ormA.kickers
         for k in ks:
             if k not in self.kickers: self.kickers[k] = len(self.kickers) + 1
-
-    def readMessOrm(self):
-        """
-        Read the ORM already computed
-        """
-        ormx = np.loadtxt('ormx.txt')
-        ormy = np.loadtxt('ormy.txt')
-        return ormx, ormy
 
     def initializeAMat(self, visualize=False):
         """
@@ -465,11 +443,6 @@ class ORMOptimizer:
             for i in range(nColumns):
                 dOrmx[i] = dOrmx[i]/Cij_x[3]
                 dOrmy[i] = dOrmy[i]/Cij_y[3]
-                """
-                for e in range(len(dOrmx[i])):
-                    if dOrmx[i][e] > 10: dOrmx[i][e] = 0
-                    if dOrmy[i][e] > 10: dOrmy[i][e] = 0
-                """
             Ax = np.hstack((dOrmx,Ax))
             Ay = np.hstack((dOrmy,Ay))
         # In case we want to see that everything works fine.
@@ -496,7 +469,6 @@ class ORMOptimizer:
         Here the parameters are fitted as in
         XFEL Beam Dynamics meeting (12.12.2005)
         """
-        self.setdCij()
         # dp = (B+)*A^{T}*(ORM_{gemessen} - ORM_{model})
         # B  = A^{T}*A
         # B+ = V*D*U^{T} from SVD
@@ -512,9 +484,9 @@ class ORMOptimizer:
 
     def _getPseudoInverse(self, B):
         """
-        Internal computation. Just for style...
-        @param singularMask controls the entries that will be taken into
-               account in the singular value decomposition.
+        Internal computation.
+        singularMask controls the entries that will be taken into
+        account in the singular value decomposition.
         """
         U, S, Vt = np.linalg.svd(B, full_matrices=False, compute_uv=True)
         for s in range(len(S)):
@@ -596,17 +568,15 @@ class ORMOptimizer:
         monErry   = erry[self.nParams:self.nParams+len(self.messFiles)]
         kickErry  = erry[self.nParams+len(self.messFiles):]
 
-        # I should implement a weighted average
+        # This can still be optimized according to necesity
         paramErr = (paramErrx + paramErry) / 2
         kicksErr = (kickErrx + kickErry) / 2
 
-        for i in range(len(self.kickers)):
-            self.dKickers[i]   *= (1 + kicksErr[i])
+        for i in range(len(self.kickers)): self.dKickers[i] *= (1 + kicksErr[i])
+        for i in range(self.nParams): self.dp0List[i] += paramErr[i]
         for i in range(self.nMonitors):
             self.dMonitors_x[i] *= (1 + monErrx[i])
             self.dMonitors_y[i] *= (1 + monErry[i])
-        for i in range(self.nParams):
-            self.dp0List[i] += paramErr[i]
         orA = self.orbitResponseAnalyzer
         orbitResponse_x = []
         orbitResponse_y = []
@@ -632,8 +602,8 @@ class ORMOptimizer:
         self.setdCij()
 
     def fitErrors(self, pList, singularMask=0,
-                  maxIt=30, error=1e-3, continueFit=False):
-        
+                  maxIt=30, error=1e-3,
+                  continueFit=False):
         if(singularMask): self.singularMask = singularMask
         print('-----------------------------------------')
         print('-----------------------------------------')
@@ -648,32 +618,11 @@ class ORMOptimizer:
         modely0 = ormMy[4]
         modelx0 = ormMx[4]
         
-        if(continueFit):
-            
-            print()
-            print('      Continue fitting')
-            print()
-            self.dkickers = np.load('dkickers.npy')
-            self.dp0List = np.load('dp0List.npy')
-            self.dmonx = np.load('dmonx.npy')
-            self.dmony = np.load('dmony.npy')
-            errx = np.load('errx.npy')
-            erry = np.load('erry.npy')
-            self.actualizeModel(errx,erry)
-            gmex_old, gmey_old = self.getGlobalMachineError()
-            gme = [self.getGlobalMachineError()]
-            gme.append(self.getGlobalMachineError())
-            self.computedOrmdP(list(self.kickers.keys()),self.dKickers)
-            self.initializeAMat()
-            self.actualizeModel(errx,erry)
-            gmex_new, gmey_new = self.getGlobalMachineError()
-            converged = (abs(gmex_new + gmey_new - gmex_old - gmey_old) < error)
-        else:
-            gme = [self.getGlobalMachineError()]
-            self.setpList(pList)
-            self.computedOrmdP()
-            self.initializeAMat()
-            converged = False
+        gme = [self.getGlobalMachineError()]
+        self.setpList(pList)
+        self.computedOrmdP()
+        self.initializeAMat()
+        converged = False
         it = 0
 
         while (not converged and it < maxIt):
