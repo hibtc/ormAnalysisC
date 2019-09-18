@@ -4,7 +4,10 @@ import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
 import warnings
 from scipy.optimize import OptimizeWarning
+import pandas
+import csv
 warnings.simplefilter("error", OptimizeWarning)
+warnings.simplefilter("error", RuntimeWarning)
 
 class MonitorReader:
     
@@ -16,24 +19,21 @@ class MonitorReader:
         self.dataPath = dataPath
         
     def getMessInfo(self, messFile):
-        with open(messFile, encoding='latin-1') as gridProfile:
-            f = gridProfile.readlines()
-            monitor = f[1]
-            time    = f[7]
-            mu0x    = f[21]
-            sig0x   = f[23]
-            mu0y    = f[26]
-            sig0y   = f[28]
-            monitor = monitor[len(monitor)-7:len(monitor)]
-            time    = time[len(time)-9:len(time)]
-            mu0x    = float(mu0x[len(mu0x)-7:len(mu0x)])
-            mu0y    = float(mu0y[len(mu0y)-7:len(mu0y)])
-            sig0x   = float(sig0x[len(sig0x)-7:len(sig0x)])
-            sig0y   = float(sig0y[len(sig0y)-7:len(sig0y)])
-
-        return [monitor.replace('\n',''), time.replace('\n',''),
-                mu0x, sig0x, mu0y, sig0y]
-
+        with open(messFile, encoding='latin-1') as csvFile:
+            csvReader = csv.reader(csvFile, delimiter=';')
+            data = []
+            for row in csvReader: data.append(row)
+            monitor = data[1][-1]
+            time    = data[7][-1]
+            time    = time.split(' ')
+            time    = time[-1]
+            mu0x    = float(data[21][-1])
+            sig0x   = float(data[23][-1])
+            mu0y    = float(data[26][-1])
+            sig0y   = float(data[28][-1])
+        
+        return [monitor, time, mu0x, sig0x, mu0y, sig0y]
+    
     def gaussCurve(self, x, a, mu, sig, l):
         G = a*np.exp(-(x-mu)**2/(2*sig**2)) + l
         return G
@@ -47,7 +47,7 @@ class MonitorReader:
         x    = data[3]
         y    = data[4]
 
-        mux0, sigx0 = -info[2], info[3]
+        mux0, sigx0 = info[2], info[3]
         muy0, sigy0 = info[4], info[5]
         p0x = [max(x), mux0, sigx0, min(x)]
         p0y = [max(y), muy0, sigy0, min(y)]
@@ -57,6 +57,7 @@ class MonitorReader:
         xfit = np.linspace(posx[0], posx[-1], 200)
         mux  = round(Gx[1],2)
         dmux = round(np.sqrt(dGx[1][1]),2)
+        #dmux = 0
         muy  = round(Gy[1],2)
         dmuy = round(np.sqrt(dGy[1][1]),2)
 
@@ -65,9 +66,12 @@ class MonitorReader:
         print('Time:    {}'.format(info[1]))
         print('----------------------------')
         print('mu_x: {}'.format(info[2]))
-        print('Fit:  {} +- {}'.format(-mux, dmux))
+        print('Fit:  {} +- {}'.format(mux, dmux))
         print('mu_y: {}'.format(info[4]))
         print('Fit:  {} +- {}'.format(muy, dmuy))
+        print('---------------------------')
+        print(gitterFile)
+        print('---------------------------')
         
         plt.figure(1)
         plt.plot(posx, x, marker='.', label='x', linestyle='')
@@ -93,7 +97,8 @@ class MonitorReader:
         
         gitterFiles = glob.glob((monitorPath+'/*'))
         positionFits = []
-
+        #gitterFiles = gitterFiles[-15:]
+        #print(gitterFiles[2])
         print('Anzahl von Files: {}'.format(len(gitterFiles)))
         for f in gitterFiles:
             info = self.getMessInfo(f)
@@ -103,7 +108,7 @@ class MonitorReader:
             monitor, time = info[0], info[1]
             time = self.timeToMin(time)
             
-            mux0, sigx0 = -info[2], info[3]
+            mux0, sigx0 = info[2], info[3]
             muy0, sigy0 = info[4], info[5]
             posx = data[1]
             x    = data[3]
@@ -118,19 +123,29 @@ class MonitorReader:
                 dmux = round(np.sqrt(dGx[1][1]),2)
                 muy  = round(Gy[1],2)
                 dmuy = round(np.sqrt(dGy[1][1]),2)
-                if(dmux>30): dmux=0.
-                if(dmuy>30): dmuy=0.
-                    
+                if(dmux>30):
+                    dmux=1e-2
+                    mux=0.
+                    print(f)
+                if(dmuy>30):
+                    dmuy=1e-2
+                    muy=0.
+                    print(f)
             except OptimizeWarning:
                 print('Catching the exception')
                 print(f)
 
+            except RuntimeWarning:
+                print(f)
 
             if(dmux > 5.): print(f)
-            positionFits.append([time, mux, dmux, muy, dmuy, mux0, muy0])
+            xMask = abs(mux-mux0)/dmux < 5.0
+            yMask = abs(muy-muy0)/dmuy < 5.0
+            if (xMask and yMask):
+                positionFits.append([time, mux, dmux, muy, dmuy, mux0, muy0])
 
         self.plotFits(positionFits)
-        self.plotHistos(positionFits)
+        #self.plotHistos(positionFits)
 
     def plotFits(self, positionFits):
         positionFits = np.transpose(positionFits)
@@ -182,17 +197,20 @@ class MonitorReader:
 
         plt.show()
 
-    
 def testGitterReader():
     gitterPath = '/home/cristopher/HIT/ormData/ormMessdata/10-06-2019/GitterProfile/'
-    gitterProfile = 'ProfilePT2/H1DG1G'
-    monitors = ['H1DG1G','H1DG2G', 'B1DG2G', 'B1DG3G']
-    messung = gitterPath + gitterProfile  
-
+    gitterProfile = 'ProfilePT2/'
+    monitorsT1 = ['H1DG1G', 'H1DG2G', 'B1DG2G', 'B1DG3G']
+    monitorsT2 = ['H1DG1G', 'H1DG2G', 'H2DG2G', 'B2DG2G', 'B2DG3G']
+    monitorsT3 = ['H1DG1G', 'H1DG2G', 'H2DG2G', 'H3DG3G',
+                  'B3DG2G', 'B3DG3G', 'G3DG3G', 'G3DG5G', ]
+    
     gR = MonitorReader(gitterPath)
-    #messFile = '/home/cristopher/HIT/ormData/ormMessdata/10-06-2019/GitterProfile/ProfilePT1/B1DG2G/B1DG2G_6_20518976_1.CSV'
     #gR.plotCurve(messFile)
-    gR.fitMonitor(messung,
-                  showProfiles=False)
+    for m in monitorsT2:
+        print(m)
+        messung = gitterPath + gitterProfile + m
+        gR.fitMonitor(messung,
+                      showProfiles=0)
     
 testGitterReader()
