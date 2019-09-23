@@ -11,15 +11,15 @@ warnings.simplefilter("error", OptimizeWarning)
 warnings.simplefilter("error", RuntimeWarning)
 
 class ProfileAnalizer:
-    
+
     def __init__(self, madguiData, monitorPath):
         """
         This class computes the Orbit Response of the beam with help
-        of the grid profiles measured at each data acquisition session 
+        of the grid profiles measured at each data acquisition session
         """
         self.madguiData  = madguiData
         self.monitorPath = monitorPath
-        
+
     def getMessInfo(self, messFile):
         with open(messFile, encoding='latin-1') as csvFile:
             csvReader = csv.reader(csvFile, delimiter=';')
@@ -33,9 +33,9 @@ class ProfileAnalizer:
             sig0x   = float(data[23][-1])
             mu0y    = float(data[26][-1])
             sig0y   = float(data[28][-1])
-        
+
         return [monitor, time, mu0x, sig0x, mu0y, sig0y]
-    
+
     def gaussCurve(self, x, a, mu, sig, l):
         G = a*np.exp(-(x-mu)**2/(2*sig**2)) + l
         return G
@@ -53,7 +53,7 @@ class ProfileAnalizer:
         muy0, sigy0 = info[4], info[5]
         p0x = [max(x), mux0, sigx0, min(x)]
         p0y = [max(y), muy0, sigy0, min(y)]
-        
+
         Gx, dGx = curve_fit(self.gaussCurve, posx, x, p0=p0x)
         Gy, dGy = curve_fit(self.gaussCurve, posx, y, p0=p0y)
         xfit = np.linspace(posx[0], posx[-1], 200)
@@ -74,21 +74,21 @@ class ProfileAnalizer:
         print('---------------------------')
         print(gitterFile)
         print('---------------------------')
-        
+
         plt.figure(1)
         plt.plot(posx, x, marker='.', label='Data', linestyle='')
         plt.plot(xfit, self.gaussCurve(xfit, *Gx), label='Fit')
         plt.xlabel('x Position [mm]')
         plt.ylabel('Intensity [a.U.]')
         plt.legend(loc=0)
-        
+
         plt.figure(2)
         plt.plot(posx, y, marker='.', label='Data', linestyle='')
         plt.plot(xfit, self.gaussCurve(xfit, *Gy), label='Fit')
         plt.xlabel('y Position [mm]')
         plt.ylabel('Intensity [a.U.]')
         plt.legend(loc=0)
-        
+
         plt.show()
 
     def timeToMin(self, time):
@@ -108,7 +108,7 @@ class ProfileAnalizer:
                               encoding='latin-1', unpack=True)
             monitor, time = info[0], info[1]
             time = self.timeToMin(time)
-            
+
             mux0, sigx0 = info[2], info[3]
             muy0, sigy0 = info[4], info[5]
             posx = data[1]
@@ -124,7 +124,8 @@ class ProfileAnalizer:
                 dmux = round(np.sqrt(dGx[1][1]),2)
                 muy  = round(Gy[1],2)
                 dmuy = round(np.sqrt(dGy[1][1]),2)
-                if (dmux > 30. or dmuy > 30.):
+                if (dmux > 30. or dmuy > 30.
+                    or abs(mux) > 30.):
                     muy = 0.
                     mux = 0.
                     dmuy = 1e-6
@@ -152,7 +153,7 @@ class ProfileAnalizer:
         dmuy = positionFits[4]
         mux0 = positionFits[5]
         muy0 = positionFits[6]
-        
+
         tMask = self.getTimeMask()
         messWertex  = []
         dMessWertex = []
@@ -164,16 +165,17 @@ class ProfileAnalizer:
             mask  = mask1*mask2
             tOptik = t[mask]
             muxOptik = mux[mask]
-            # Helps but still does not filters out everything
-            muxOptikFiltered = medfilt(muxOptik[1:-1])
+            muxOptikFiltered = np.sort(muxOptik[1:])
+            muxOptikFiltered = muxOptikFiltered[1:-1]
             messWertx = np.mean(muxOptikFiltered)
             dmessWertx_syst = np.sqrt(sum(dmux[mask]**2))/len(dmux[mask])
-            dmessWertx_stat = np.std(muxOptik[1:-1])
+            dmessWertx_stat = np.std(muxOptikFiltered)
             muyOptik = muy[mask]
-            muyOptikFiltered = medfilt(muyOptik[1:-1])
+            muyOptikFiltered = np.sort(muyOptik[1:])
+            muyOptikFiltered = muyOptikFiltered[1:-1]
             messWerty = np.mean(muyOptikFiltered)
             dmessWerty_syst = np.sqrt(sum(dmuy[mask]**2))/len(dmuy[mask])
-            dmessWerty_stat = np.std(muyOptik[1:-1])
+            dmessWerty_stat = np.std(muyOptikFiltered)
             messWertex.append(messWertx)
             dMessWertex.append([dmessWertx_syst,
                                 dmessWertx_stat])
@@ -181,8 +183,8 @@ class ProfileAnalizer:
             dMessWertey.append([dmessWerty_syst,
                                 dmessWerty_stat])
 
-        return [messWertex, dMessWertex, messWertey, dMessWertey]    
-    
+        return [messWertex, dMessWertex, messWertey, dMessWertey]
+
     def plotFits(self, positionFits, monitor, messWerte):
         positionFits = np.transpose(positionFits)
         t = positionFits[0]
@@ -197,11 +199,11 @@ class ProfileAnalizer:
         dMessWertex = messWerte[1]
         messWertey  = messWerte[2]
         dMessWertey = messWerte[3]
-        
+
         tMask = self.getTimeMask()
-        
+
         plt.figure(1)
-        plt.errorbar(t, mux, yerr=dmux, marker='.')
+        plt.errorbar(t, mux, yerr=dmux, marker='.', linestyle='')
         plt.plot(t, mux0, marker='.', linestyle='')
         plt.title('x-Position')
         plt.xlabel('Time [min]')
@@ -218,7 +220,7 @@ class ProfileAnalizer:
         plt.legend(loc=0)
 
         plt.figure(2)
-        plt.errorbar(t, muy, yerr=dmuy, marker='.')
+        plt.errorbar(t, muy, yerr=dmuy, marker='.',linestyle='')
         plt.plot(t, muy0, marker='.', linestyle='')
         plt.title('y-Position at {}'.format(monitor))
         plt.xlabel('Time [min]')
@@ -256,7 +258,7 @@ class ProfileAnalizer:
         plt.figure(4)
         plt.hist(dmuy,bins=10)
         plt.title(r'$\Delta \mu_y$')
-        
+
         plt.show()
 
     def getTimeMask(self):
@@ -275,6 +277,3 @@ class ProfileAnalizer:
                               self.timeToMin(t1[1])])
 
         return timeMasks
-            
-    
-
