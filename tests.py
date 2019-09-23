@@ -318,8 +318,51 @@ def testFit():
                   continueFit=True
     )
 
+def testGitterReader():
+    from OrmAnalysis import ORMOptimizer, OrbitResponse
+    from gitterAnalysis import ProfileAnalizer    
+    gitterPath = '/home/cristopher/HIT/ormData/ormMessdata/10-06-2019/GitterProfile/'
+    gitterProfile = 'ProfilePT3/'
+
+    prePath = '../ormData/ormMessdata/10-06-2019/'
+    modelPath_hht1 = '../hit_models/hht1/run.madx'
+    hht1 = [
+        #'2019-06-10_12-08-47_hht1_h1dg1g.orm_measurement.yml',
+        #'2019-06-10_12-12-52_hht1_h1dg2g.orm_measurement.yml',
+        #'2019-06-10_12-27-49_hht1_b1dg2g.orm_measurement.yml',
+        #'2019-06-10_12-44-54_hht1_b1dg3g.orm_measurement.yml',
+    ]
+    modelPath_hht2 = '../hit_models/hht2/run.madx'
+    hht2 = [
+        #'2019-06-10_13-35-08_hht2_h1dg1g.orm_measurement.yml',
+        #'2019-06-10_13-37-35_hht2_h1dg2g.orm_measurement.yml',
+        #'2019-06-10_13-46-05_hht2_h2dg2g.orm_measurement.yml',
+        #'2019-06-10_13-51-36_hht2_b2dg2g.orm_measurement.yml',
+        '2019-06-10_13-59-38_hht2_b2dg3g.orm_measurement.yml',
+        #'2019-06-10_14-08-29_hht2_t2dg2g.orm_measurement.yml',
+        #'2019-06-10_14-18-50_hht2_t2df1.orm_measurement.yml',
+    ]
+    modelPath_hht3 = '../hit_models/hht3/run.madx'
+    hht3 = [
+        '2019-06-10_08-31-35_hht3_h1dg1g.orm_measurement.yml',
+        '2019-06-10_08-36-56_hht3_h1dg2g.orm_measurement.yml',
+        '2019-06-10_08-48-04_hht3_h2dg2g.orm_measurement.yml',
+        '2019-06-10_09-00-22_hht3_h3dg3g.orm_measurement.yml',
+        '2019-06-10_09-20-44_hht3_b3dg2g.orm_measurement.yml',
+        '2019-06-10_09-44-26_hht3_b3dg3g.orm_measurement.yml',
+        '2019-06-10_10-10-58_hht3_g3dg3g.orm_measurement.yml',
+        '2019-06-10_10-41-00_hht3_g3dg5g.orm_measurement.yml',
+        ]
+    for mFile in hht3:
+        madguiData = prePath+mFile
+        ormA = OrbitResponse(madguiData, modelPath_hht3)
+        data = ormA.data
+        gR = ProfileAnalizer(data, gitterPath+gitterProfile)
+        gR.fitProfiles(ormA.monitor.upper(), showProfiles=0)
+
+testGitterReader()
 #fit_hht1()
 #fit_hht2()
 #preGantry()
 #gantry()
-testFit()
+#testFit()

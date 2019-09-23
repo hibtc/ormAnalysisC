@@ -2,21 +2,22 @@ import numpy as np
 import glob
 import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
-import warnings
 from scipy.optimize import OptimizeWarning
-import pandas
+import warnings
 import csv
+from yaml import safe_load
 warnings.simplefilter("error", OptimizeWarning)
 warnings.simplefilter("error", RuntimeWarning)
 
-class MonitorReader:
+class ProfileAnalizer:
     
-    def __init__(self, dataPath):
+    def __init__(self, madguiData, monitorPath):
         """
         This class computes the Orbit Response of the beam with help
         of the grid profiles measured at each data acquisition session 
         """
-        self.dataPath = dataPath
+        self.madguiData  = madguiData
+        self.monitorPath = monitorPath
         
     def getMessInfo(self, messFile):
         with open(messFile, encoding='latin-1') as csvFile:
@@ -74,16 +75,16 @@ class MonitorReader:
         print('---------------------------')
         
         plt.figure(1)
-        plt.plot(posx, x, marker='.', label='x', linestyle='')
-        plt.plot(xfit, self.gaussCurve(xfit, *Gx))
-        plt.xlabel('Position [mm]')
+        plt.plot(posx, x, marker='.', label='Data', linestyle='')
+        plt.plot(xfit, self.gaussCurve(xfit, *Gx), label='Fit')
+        plt.xlabel('x Position [mm]')
         plt.ylabel('Intensity [a.U.]')
         plt.legend(loc=0)
         
         plt.figure(2)
-        plt.plot(posx, y, marker='.', label='y', linestyle='')
-        plt.plot(xfit, self.gaussCurve(xfit, *Gy))
-        plt.xlabel('Position [mm]')
+        plt.plot(posx, y, marker='.', label='Data', linestyle='')
+        plt.plot(xfit, self.gaussCurve(xfit, *Gy), label='Fit')
+        plt.xlabel('y Position [mm]')
         plt.ylabel('Intensity [a.U.]')
         plt.legend(loc=0)
         
@@ -93,12 +94,11 @@ class MonitorReader:
         t = time.split(':')
         return float(t[0])*60+float(t[1])+float(t[2])/60
 
-    def fitMonitor(self, monitorPath, showProfiles=False):
-        
-        gitterFiles = glob.glob((monitorPath+'/*'))
+    def fitProfiles(self, monitor, showProfiles=False):
+
+        gitterFiles = glob.glob((self.monitorPath+monitor+'/*'))
+        print(monitor)
         positionFits = []
-        #gitterFiles = gitterFiles[-15:]
-        #print(gitterFiles[2])
         print('Anzahl von Files: {}'.format(len(gitterFiles)))
         for f in gitterFiles:
             info = self.getMessInfo(f)
@@ -123,14 +123,11 @@ class MonitorReader:
                 dmux = round(np.sqrt(dGx[1][1]),2)
                 muy  = round(Gy[1],2)
                 dmuy = round(np.sqrt(dGy[1][1]),2)
-                if(dmux>30):
-                    dmux=1e-2
-                    mux=0.
-                    print(f)
-                if(dmuy>30):
-                    dmuy=1e-2
-                    muy=0.
-                    print(f)
+                if (dmux > 30. or dmuy > 30.):
+                    muy = 0.
+                    mux = 0.
+                    dmuy = 1e-6
+                    dmux = 1e-6
             except OptimizeWarning:
                 print('Catching the exception')
                 print(f)
@@ -138,16 +135,51 @@ class MonitorReader:
             except RuntimeWarning:
                 print(f)
 
-            if(dmux > 5.): print(f)
-            xMask = abs(mux-mux0)/dmux < 5.0
-            yMask = abs(muy-muy0)/dmuy < 5.0
-            if (xMask and yMask):
-                positionFits.append([time, mux, dmux, muy, dmuy, mux0, muy0])
+            positionFits.append([time, mux, dmux, muy, dmuy, mux0, muy0])
 
-        self.plotFits(positionFits)
+        messung = self.setMeasurements(positionFits)
+        self.plotFits(positionFits, monitor, messung)
         #self.plotHistos(positionFits)
 
-    def plotFits(self, positionFits):
+    def setMeasurements(self, positionFits):
+        positionFits = np.transpose(positionFits)
+        t    = positionFits[0]
+        mux  = positionFits[1]
+        dmux = positionFits[2]
+        muy  = positionFits[3]
+        dmuy = positionFits[4]
+        mux0 = positionFits[5]
+        muy0 = positionFits[6]
+        
+        tMask = self.getTimeMask()
+        messWertex  = []
+        dMessWertex = []
+        messWertey  = []
+        dMessWertey = []
+        for tRange in tMask:
+            mask1 = tRange[0]*np.ones(len(t)) < t
+            mask2 = t < tRange[1]*np.ones(len(t))
+            mask  = mask1*mask2
+            tOptik = t[mask]
+            muxOptik = mux[mask]
+
+            messWertx  = np.mean(muxOptik[2:-2])
+            dmessWertx_syst = np.sqrt(sum(dmux[mask]**2))/len(dmux[mask])
+            dmessWertx_stat = np.std(muxOptik[2:-2])
+            muyOptik  = muy[mask]
+            messWerty = np.mean(muyOptik[2:-2])
+            dmessWerty_syst = np.sqrt(sum(dmuy[mask]**2))/len(dmuy[mask])
+            dmessWerty_stat = np.std(muyOptik[2:-2])
+            messWertex.append(messWertx)
+            dMessWertex.append([dmessWertx_syst,
+                                dmessWertx_stat])
+            messWertey.append(messWerty)
+            dMessWertey.append([dmessWerty_syst,
+                                dmessWerty_stat])
+
+        return [messWertex, dMessWertex, messWertey, dMessWertey]
+        
+    def plotFits(self, positionFits, monitor, messWerte):
         positionFits = np.transpose(positionFits)
         t = positionFits[0]
         mux  = positionFits[1]
@@ -156,21 +188,47 @@ class MonitorReader:
         dmuy = positionFits[4]
         mux0 = positionFits[5]
         muy0 = positionFits[6]
+
+        messWertex  = messWerte[0]
+        dMessWertex = messWerte[1]
+        messWertey  = messWerte[2]
+        dMessWertey = messWerte[3]
+        
+        tMask = self.getTimeMask()
         
         plt.figure(1)
         plt.errorbar(t, mux, yerr=dmux, marker='.')
         plt.plot(t, mux0, marker='.', linestyle='')
         plt.title('x-Position')
-        plt.xlabel('Time')
-        plt.ylabel('Position')
-        
+        plt.xlabel('Time [min]')
+        plt.ylabel('Position [mm]')
+        for i in range(len(messWertex)):
+            label1 = '{} +- ({} + {})'.format(round(messWertex[i],3),
+                                              round(dMessWertex[i][0],3),
+                                              round(dMessWertex[i][1],3))
+            plt.plot(tMask[i], [messWertex[i],messWertex[i]],
+                     label=label1)
+        for ti in tMask:
+            plt.axvline(ti[0], linestyle='--')
+            plt.axvline(ti[1], linestyle='--')
+        plt.legend(loc=0)
+
         plt.figure(2)
         plt.errorbar(t, muy, yerr=dmuy, marker='.')
         plt.plot(t, muy0, marker='.', linestyle='')
-        plt.title('y-Position')
-        plt.xlabel('Time')
-        plt.ylabel('Position')
-
+        plt.title('y-Position at {}'.format(monitor))
+        plt.xlabel('Time [min]')
+        plt.ylabel('Position [mm]')
+        for i in range(len(messWertey)):
+            label1 = '{} +- ({} + {})'.format(round(messWertey[i],3),
+                                              round(dMessWertey[i][0],3),
+                                              round(dMessWertey[i][1],3))
+            plt.plot(tMask[i], [messWertey[i],messWertey[i]],
+                     label=label1)
+        for ti in tMask:
+            plt.axvline(ti[0], linestyle='--')
+            plt.axvline(ti[1], linestyle='--')
+        plt.legend(loc=0)
         plt.show()
 
     def plotHistos(self, positionFits):
@@ -194,23 +252,25 @@ class MonitorReader:
         plt.figure(4)
         plt.hist(dmuy,bins=10)
         plt.title(r'$\Delta \mu_y$')
-
+        
         plt.show()
 
-def testGitterReader():
-    gitterPath = '/home/cristopher/HIT/ormData/ormMessdata/10-06-2019/GitterProfile/'
-    gitterProfile = 'ProfilePT2/'
-    monitorsT1 = ['H1DG1G', 'H1DG2G', 'B1DG2G', 'B1DG3G']
-    monitorsT2 = ['H1DG1G', 'H1DG2G', 'H2DG2G', 'B2DG2G', 'B2DG3G']
-    monitorsT3 = ['H1DG1G', 'H1DG2G', 'H2DG2G', 'H3DG3G',
-                  'B3DG2G', 'B3DG3G', 'G3DG3G', 'G3DG5G', ]
+    def getTimeMask(self):
+        data = self.madguiData
+        opticTime = []
+        for kickerChange in data['records']:
+            shotTimes = [kickerChange['time']]
+            for shot in kickerChange['shots']:
+                shotTimes.append(shot['time'])
+            opticTime.append(shotTimes)
+        timeMasks = []
+        for change in opticTime:
+            t0 = change[0].split(' ')
+            t1 = change[-1].split(' ')
+            timeMasks.append([self.timeToMin(t0[1]),
+                              self.timeToMin(t1[1])])
+
+        return timeMasks
+            
     
-    gR = MonitorReader(gitterPath)
-    #gR.plotCurve(messFile)
-    for m in monitorsT2:
-        print(m)
-        messung = gitterPath + gitterProfile + m
-        gR.fitMonitor(messung,
-                      showProfiles=0)
-    
-testGitterReader()
+
