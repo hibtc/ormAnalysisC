@@ -3,6 +3,7 @@ import glob
 import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
 from scipy.optimize import OptimizeWarning
+from scipy.signal import medfilt
 import warnings
 import csv
 from yaml import safe_load
@@ -94,7 +95,7 @@ class ProfileAnalizer:
         t = time.split(':')
         return float(t[0])*60+float(t[1])+float(t[2])/60
 
-    def fitProfiles(self, monitor, showProfiles=False):
+    def fitProfiles(self, monitor, showProfiles=False, skipShots=1):
 
         gitterFiles = glob.glob((self.monitorPath+monitor+'/*'))
         print(monitor)
@@ -135,13 +136,14 @@ class ProfileAnalizer:
             except RuntimeWarning:
                 print(f)
 
+            #if (abs(muy0-muy)/dmuy < 5. and abs(mux0-mux)/dmux < 5.):
             positionFits.append([time, mux, dmux, muy, dmuy, mux0, muy0])
 
-        messung = self.setMeasurements(positionFits)
+        messung = self.setMeasurements(positionFits, skipShots)
         self.plotFits(positionFits, monitor, messung)
         #self.plotHistos(positionFits)
 
-    def setMeasurements(self, positionFits):
+    def setMeasurements(self, positionFits, skipShots):
         positionFits = np.transpose(positionFits)
         t    = positionFits[0]
         mux  = positionFits[1]
@@ -162,14 +164,16 @@ class ProfileAnalizer:
             mask  = mask1*mask2
             tOptik = t[mask]
             muxOptik = mux[mask]
-
-            messWertx  = np.mean(muxOptik[2:-2])
+            # Helps but still does not filters out everything
+            muxOptikFiltered = medfilt(muxOptik[1:-1])
+            messWertx = np.mean(muxOptikFiltered)
             dmessWertx_syst = np.sqrt(sum(dmux[mask]**2))/len(dmux[mask])
-            dmessWertx_stat = np.std(muxOptik[2:-2])
-            muyOptik  = muy[mask]
-            messWerty = np.mean(muyOptik[2:-2])
+            dmessWertx_stat = np.std(muxOptik[1:-1])
+            muyOptik = muy[mask]
+            muyOptikFiltered = medfilt(muyOptik[1:-1])
+            messWerty = np.mean(muyOptikFiltered)
             dmessWerty_syst = np.sqrt(sum(dmuy[mask]**2))/len(dmuy[mask])
-            dmessWerty_stat = np.std(muyOptik[2:-2])
+            dmessWerty_stat = np.std(muyOptik[1:-1])
             messWertex.append(messWertx)
             dMessWertex.append([dmessWertx_syst,
                                 dmessWertx_stat])
@@ -177,8 +181,8 @@ class ProfileAnalizer:
             dMessWertey.append([dmessWerty_syst,
                                 dmessWerty_stat])
 
-        return [messWertex, dMessWertex, messWertey, dMessWertey]
-        
+        return [messWertex, dMessWertex, messWertey, dMessWertey]    
+    
     def plotFits(self, positionFits, monitor, messWerte):
         positionFits = np.transpose(positionFits)
         t = positionFits[0]
