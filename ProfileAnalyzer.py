@@ -9,7 +9,7 @@ from yaml import safe_load
 warnings.simplefilter("error", OptimizeWarning)
 warnings.simplefilter("error", RuntimeWarning)
 
-class ProfileAnalizer:
+class ProfileAnalyzer:
 
     def __init__(self, madguiData, monitorPath):
         """
