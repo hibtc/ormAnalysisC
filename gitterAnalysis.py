@@ -3,7 +3,6 @@ import glob
 import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
 from scipy.optimize import OptimizeWarning
-from scipy.signal import medfilt
 import warnings
 import csv
 from yaml import safe_load
@@ -19,6 +18,8 @@ class ProfileAnalizer:
         """
         self.madguiData  = madguiData
         self.monitorPath = monitorPath
+        self.messDatax   = []
+        self.messDatay   = []
 
     def getMessInfo(self, messFile):
         with open(messFile, encoding='latin-1') as csvFile:
@@ -95,8 +96,10 @@ class ProfileAnalizer:
         t = time.split(':')
         return float(t[0])*60+float(t[1])+float(t[2])/60
 
-    def fitProfiles(self, monitor, showProfiles=False, skipShots=1):
-
+    def fitProfiles(self, monitor, showProfiles=False, skipShots=1,plot=True):
+        """
+        Fits the monitor profiles with a Gauss peak
+        """
         gitterFiles = glob.glob((self.monitorPath+monitor+'/*'))
         print(monitor)
         positionFits = []
@@ -137,14 +140,19 @@ class ProfileAnalizer:
             except RuntimeWarning:
                 print(f)
 
-            #if (abs(muy0-muy)/dmuy < 5. and abs(mux0-mux)/dmux < 5.):
             positionFits.append([time, mux, dmux, muy, dmuy, mux0, muy0])
 
-        messung = self.setMeasurements(positionFits, skipShots)
-        self.plotFits(positionFits, monitor, messung)
-        #self.plotHistos(positionFits)
+        messung = self.getMeasurements(positionFits, skipShots)
+        self.messDatax, self.messDatay = self.formatMeasurements(messung)
+        if(plot):
+            self.plotFits(positionFits, monitor, messung)
+            #self.plotHistos(positionFits)
 
-    def setMeasurements(self, positionFits, skipShots):
+    def getMeasurements(self, positionFits, skipShots):
+        """
+        Computes the mean value of the fitted beam profiles
+        A filter is provided to rule out abnormal values
+        """
         positionFits = np.transpose(positionFits)
         t    = positionFits[0]
         mux  = positionFits[1]
@@ -154,7 +162,7 @@ class ProfileAnalizer:
         mux0 = positionFits[5]
         muy0 = positionFits[6]
 
-        tMask = self.getTimeMask()
+        tMask, kickers = self.getTimeMask()
         messWertex  = []
         dMessWertex = []
         messWertey  = []
@@ -186,6 +194,10 @@ class ProfileAnalizer:
         return [messWertex, dMessWertex, messWertey, dMessWertey]
 
     def plotFits(self, positionFits, monitor, messWerte):
+        """
+        Plots the computed mean values of the fitted peaks
+        from the monitor profiles
+        """
         positionFits = np.transpose(positionFits)
         t = positionFits[0]
         mux  = positionFits[1]
@@ -200,8 +212,8 @@ class ProfileAnalizer:
         messWertey  = messWerte[2]
         dMessWertey = messWerte[3]
 
-        tMask = self.getTimeMask()
-
+        tMask, kickers = self.getTimeMask()
+        
         plt.figure(1)
         plt.errorbar(t, mux, yerr=dmux, marker='.', linestyle='')
         plt.plot(t, mux0, marker='.', linestyle='')
@@ -210,8 +222,8 @@ class ProfileAnalizer:
         plt.ylabel('Position [mm]')
         for i in range(len(messWertex)):
             label1 = '{} +- ({} + {})'.format(round(messWertex[i],3),
-                                              round(dMessWertex[i][0],3),
-                                              round(dMessWertex[i][1],3))
+                                                  round(dMessWertex[i][0],3),
+                                                  round(dMessWertex[i][1],3))
             plt.plot(tMask[i], [messWertex[i],messWertex[i]],
                      label=label1)
         for ti in tMask:
@@ -237,6 +249,34 @@ class ProfileAnalizer:
         plt.legend(loc=0)
         plt.show()
 
+    def formatMeasurements(self, messWerte):
+        """
+        Returns the computed measurements in a very nice format
+         [['Kicker1', 'x1 Value', 'x1 Uncertainty'],
+          ['Kicker2', 'x2 Value', 'x2 Uncertainty'],
+          ...]
+        """
+        ormMessx = []
+        ormMessy = []
+
+        messWertex  = messWerte[0]
+        dMessWertex = messWerte[1]
+        messWertey  = messWerte[2]
+        dMessWertey = messWerte[3]
+        
+        tMask, kickers = self.getTimeMask()
+        for i in range(len(messWertex)):
+            kick = list(kickers[i].keys())
+            messWertyi  = messWertey[i]
+            dmessWertyi = dMessWertey[i][0] + dMessWertey[i][1]
+            messWertxi  = messWertex[i]
+            dmessWertxi = dMessWertex[i][0] + dMessWertex[i][1]
+            if(len(kick)==0): kick = ''
+            else: kick = kick[0]
+            ormMessx.append([kick, messWertxi, dmessWertxi])
+            ormMessy.append([kick, messWertyi, dmessWertyi])
+        return ormMessx, ormMessy
+    
     def plotHistos(self, positionFits):
 
         positionFits = np.transpose(positionFits)
@@ -264,7 +304,9 @@ class ProfileAnalizer:
     def getTimeMask(self):
         data = self.madguiData
         opticTime = []
+        kickers   = []
         for kickerChange in data['records']:
+            kickers.append(kickerChange['optics'])
             shotTimes = [kickerChange['time']]
             for shot in kickerChange['shots']:
                 shotTimes.append(shot['time'])
@@ -276,4 +318,4 @@ class ProfileAnalizer:
             timeMasks.append([self.timeToMin(t0[1]),
                               self.timeToMin(t1[1])])
 
-        return timeMasks
+        return timeMasks, kickers
