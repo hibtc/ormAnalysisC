@@ -1,5 +1,6 @@
 from cpymad.madx import Madx
 from yaml import safe_load
+from ProfileAnalyzer import ProfileAnalyzer
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -15,9 +16,10 @@ class OrbitResponse:
     @param madxModelFile is the file path to the MAD-X model file. The model
            should run in MAD-X.
     """
-    def __init__(self, dataFile, madxModelFile):
+    def __init__(self, dataFile, madxModelFile, profilePath):
         self.madxModelFile       = madxModelFile
         self.dataFile            = dataFile
+        self.profilePath         = profilePath
         self.data                = self.readData(dataFile)
         self.monitor             = self.getMonitor()
         self.kickers, self.kicks = self.getKicks()
@@ -98,6 +100,14 @@ class OrbitResponse:
         madx = self.madx
         self.madx.call(file=self.madxModelFile, chdir=True)
         self.madx.globals.update(self.data['model'])
+    
+        profAnalizer = ProfileAnalyzer(self.data, self.profilePath)
+        profAnalizer.fitProfiles(self.monitor.upper(), showProfiles=False,
+                                 skipShots=1, plot=False)
+        pOrmx, pOrmy = profAnalizer.messDatax, profAnalizer.messDatay
+        gridProfiles = (len(pOrmx) != 0)
+        print(' GridProfiles: ', gridProfiles)
+        
         records     = self.data['records']
         beamMess    = []
         beamMessErr = []
@@ -106,7 +116,7 @@ class OrbitResponse:
             dataBeam = []
             for shot in shots: dataBeam.append(shot[self.monitor])
             mean   = np.mean(dataBeam, axis = 0)
-            stdDev = np.std (dataBeam, axis = 0) / np.sqrt(len(dataBeam))
+            stdDev = np.std (dataBeam, axis = 0)
             # Last two entries correspond to the beam envelope measurement.
             # (That's why we just take the first two)
             beamMess.append(np.array(mean[:2]))
@@ -119,12 +129,23 @@ class OrbitResponse:
             k0       = madx.globals[self.kickers[k]]
             kickDiff = (self.kicks[k] - k0)
             # First measurement is always the reference measurement
-            orbR_k    = (beamMess[k+1] - beamMess[0]) / kickDiff
-            # Gaussian error propagation
+            orbR_k = (beamMess[k+1] - beamMess[0]) / kickDiff
             orbRErr_k = np.sqrt(beamMessErr[k+1]**2 + beamMessErr[0]**2) \
                         / kickDiff
-            orbitResponse.append(orbR_k)
-            orbitResponseErr.append(orbRErr_k)
+            if(gridProfiles):
+                # Grid horizontal axis is inverted
+                orbR_kx = -(pOrmx[self.kickers[k]][0] - pOrmx[''][0]) / kickDiff
+                orbR_ky = (pOrmy[self.kickers[k]][0] - pOrmy[''][0]) / kickDiff
+                # Gaussian error propagation
+                orbRErr_kx = np.sqrt(pOrmx[self.kickers[k]][1]**2 + pOrmx[''][1]**2) \
+                             / kickDiff
+                orbRErr_ky = np.sqrt(pOrmy[self.kickers[k]][1]**2 + pOrmy[''][1]**2) \
+                             / kickDiff
+                orbitResponse.append([orbR_kx, orbR_ky])
+                orbitResponseErr.append([orbRErr_kx, orbRErr_ky])
+            else:
+                orbitResponse.append(orbR_k)
+                orbitResponseErr.append(orbRErr_k)
         orbitResponse    = np.transpose(orbitResponse)
         orbitResponseErr = np.transpose(orbitResponseErr)
         return orbitResponse, orbitResponseErr
@@ -322,11 +343,11 @@ class OrbitResponse:
 
 class ORMOptimizer:
 
-    def __init__(self, messFiles, madxFile,
+    def __init__(self, messFiles, madxFile, profilePath,
                  readOrm=False, plotEachM=True, savePath='.'):
         self.messFiles = messFiles
         self.madxFile  = madxFile
-        self.orbitResponseAnalyzer = OrbitResponse(messFiles[0], madxFile)
+        self.orbitResponseAnalyzer = OrbitResponse(messFiles[0], madxFile, profilePath)
         self.monitors  = self.getMonitors()
         self.kickers   = {}
         self.nMonitors = len(self.monitors)

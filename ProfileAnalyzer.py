@@ -15,11 +15,13 @@ class ProfileAnalyzer:
         """
         This class computes the Orbit Response of the beam with help
         of the grid profiles measured at each data acquisition session
+        @param madguiData is the unpacked measurement
+        @param monitorPath the path to the monitor profile files
         """
         self.madguiData  = madguiData
         self.monitorPath = monitorPath
-        self.messDatax   = []
-        self.messDatay   = []
+        self.messDatax   = {}
+        self.messDatay   = {}
 
     def getMessInfo(self, messFile):
         with open(messFile, encoding='latin-1') as csvFile:
@@ -96,14 +98,20 @@ class ProfileAnalyzer:
         t = time.split(':')
         return float(t[0])*60+float(t[1])+float(t[2])/60
 
-    def fitProfiles(self, monitor, showProfiles=False, skipShots=1,plot=True):
+    def fitProfiles(self, monitor, showProfiles=False,
+                          skipShots=1, plot=True):
         """
         Fits the monitor profiles with a Gauss peak
         """
         gitterFiles = glob.glob((self.monitorPath+monitor+'/*'))
-        print(monitor)
         positionFits = []
-        print('Anzahl von Files: {}'.format(len(gitterFiles)))
+
+        print('------------------------------')
+        print('  Fitting monitor profiles ')
+        print('- Monitor: {}'.format(monitor))
+        print('- Anzahl von Files: {}'.format(len(gitterFiles)))
+        print('------------------------------')
+            
         for f in gitterFiles:
             info = self.getMessInfo(f)
             if showProfiles: self.plotCurve(f)
@@ -142,11 +150,14 @@ class ProfileAnalyzer:
 
             positionFits.append([time, mux, dmux, muy, dmuy, mux0, muy0])
 
-        messung = self.getMeasurements(positionFits, skipShots)
-        self.messDatax, self.messDatay = self.formatMeasurements(messung)
-        if(plot):
-            self.plotFits(positionFits, monitor, messung)
-            #self.plotHistos(positionFits)
+        if (len(gitterFiles) != 0):
+            messung = self.getMeasurements(positionFits, skipShots)
+            self.messDatax, self.messDatay = self.formatMeasurements(messung)
+            if(plot):
+                self.plotFits(positionFits, monitor, messung)
+                #self.plotHistos(positionFits)
+        else:
+            self.messDatax, self.messDatay = {},{}
 
     def getMeasurements(self, positionFits, skipShots):
         """
@@ -173,14 +184,18 @@ class ProfileAnalyzer:
             mask  = mask1*mask2
             tOptik = t[mask]
             muxOptik = mux[mask]
-            muxOptikFiltered = np.sort(muxOptik[1:])
-            muxOptikFiltered = muxOptikFiltered[1:-1]
+            muxOptikFiltered = muxOptik
+            if(len(muxOptik) > 3):
+                muxOptikFiltered = np.sort(muxOptik[1:])
+                muxOptikFiltered = muxOptikFiltered[1:-1]
             messWertx = np.mean(muxOptikFiltered)
             dmessWertx_syst = np.sqrt(sum(dmux[mask]**2))/len(dmux[mask])
             dmessWertx_stat = np.std(muxOptikFiltered)
             muyOptik = muy[mask]
-            muyOptikFiltered = np.sort(muyOptik[1:])
-            muyOptikFiltered = muyOptikFiltered[1:-1]
+            muyOptikFiltered = muyOptik
+            if(len(muxOptik) > 3):
+                muyOptikFiltered = np.sort(muyOptik[1:])
+                muyOptikFiltered = muyOptikFiltered[1:-1]
             messWerty = np.mean(muyOptikFiltered)
             dmessWerty_syst = np.sqrt(sum(dmuy[mask]**2))/len(dmuy[mask])
             dmessWerty_stat = np.std(muyOptikFiltered)
@@ -252,17 +267,17 @@ class ProfileAnalyzer:
     def formatMeasurements(self, messWerte):
         """
         Returns the computed measurements in a very nice format
-         [['Kicker1', 'x1 Value', 'x1 Uncertainty'],
-          ['Kicker2', 'x2 Value', 'x2 Uncertainty'],
+         {'Kicker1':['x1 Value', 'x1 Uncertainty'],
+          'Kicker2':['x2 Value', 'x2 Uncertainty'],
           ...]
         """
-        ormMessx = []
-        ormMessy = []
+        ormMessx = {}
+        ormMessy = {}
 
-        messWertex  = messWerte[0]
-        dMessWertex = messWerte[1]
-        messWertey  = messWerte[2]
-        dMessWertey = messWerte[3]
+        messWertex  = np.array(messWerte[0])*1e-3
+        dMessWertex = np.array(messWerte[1])*1e-3
+        messWertey  = np.array(messWerte[2])*1e-3
+        dMessWertey = np.array(messWerte[3])*1e-3
         
         tMask, kickers = self.getTimeMask()
         for i in range(len(messWertex)):
@@ -273,8 +288,8 @@ class ProfileAnalyzer:
             dmessWertxi = dMessWertex[i][0] + dMessWertex[i][1]
             if(len(kick)==0): kick = ''
             else: kick = kick[0]
-            ormMessx.append([kick, messWertxi, dmessWertxi])
-            ormMessy.append([kick, messWertyi, dmessWertyi])
+            ormMessx.update( {kick:[messWertxi, dmessWertxi]} )
+            ormMessy.update( {kick:[messWertyi, dmessWertyi]} )
         return ormMessx, ormMessy
     
     def plotHistos(self, positionFits):

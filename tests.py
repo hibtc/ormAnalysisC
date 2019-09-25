@@ -166,7 +166,7 @@ def preGantry():
     opt = ORMOptimizer(messFiles4, modelPath,
                        readOrm=False, plotEachM=False,
                        savePath='../ormBericht/NotSimpleResults/hht3')
-    singMask = 1e7
+    singMask = 1e5
     err      = 1e-1
     maxIts   = 200
     opt.fitErrors(pList, singularMask=singMask,
@@ -176,6 +176,7 @@ def gantry():
     
     from OrmAnalysis import ORMOptimizer
     modelPath = 'hht3/run.madx'
+    profilePath = '/home/cristopher/HIT/ormData/ormMessdata/10-06-2019/GitterProfile/ProfilePT3/'
     # First session
     prePath = '../ormData/ormMessdata/10-06-2019/'
     messFiles = [
@@ -192,18 +193,18 @@ def gantry():
         ]
     for i in range(len(messFiles)): messFiles[i] = prePath + messFiles[i]
     pList =  [
-        #'kL_H1QD11',
-        #'kL_H1QD12',
-        #'kL_H2QT11',
-        #'kL_H2QT12',
-        #'kL_H2QT13',
-        #'kL_H3QD11',
-        #'kL_H3QD12',
-        #'kL_H3QD21',
-        #'kL_H3QD22',
-        #'kL_B3QD11',
-        #'kL_B3QD12',
-        #'gantry_angle',
+        'kL_H1QD11',
+        'kL_H1QD12',
+        'kL_H2QT11',
+        'kL_H2QT12',
+        'kL_H2QT13',
+        'kL_H3QD11',
+        'kL_H3QD12',
+        'kL_H3QD21',
+        'kL_H3QD22',
+        'kL_B3QD11',
+        'kL_B3QD12',
+        'gantry_angle',
         'kL_G3QD11',
         'kL_G3QD12',
         'kL_G3QD21',
@@ -213,7 +214,7 @@ def gantry():
         'kL_EFG_G3QD41',
         'kL_EFG_G3QD42',
     ]
-    opt = ORMOptimizer(messFiles, modelPath,
+    opt = ORMOptimizer(messFiles, modelPath, profilePath,
                        readOrm=False, plotEachM=False,
                        savePath='../ormBericht/NotSimpleResults/gantry')
     singMask = 1e7
@@ -228,6 +229,7 @@ def fit_hht2():
     from OrmAnalysis import ORMOptimizer, OrbitResponse
     prePath = '../ormData/ormMessdata/10-06-2019/'
     modelPath_hht2 = '../hit_models/hht2/run.madx'
+    gitterPath = '/home/cristopher/HIT/ormData/ormMessdata/10-06-2019/GitterProfile/ProfilePT2/'
     hht2 = [
         '2019-06-10_13-35-08_hht2_h1dg1g.orm_measurement.yml',
         '2019-06-10_13-37-35_hht2_h1dg2g.orm_measurement.yml',
@@ -254,7 +256,7 @@ def fit_hht2():
         'kL_B2QD21',
         'kL_B2QD22',
     ]
-    opt = ORMOptimizer(hht2, modelPath_hht2,
+    opt = ORMOptimizer(hht2, modelPath_hht2, gitterPath,
                        readOrm=False, plotEachM=False)
     singMask = 1e6
     err      = 1e-1
@@ -266,6 +268,7 @@ def fit_hht1():
     from OrmAnalysis import ORMOptimizer, OrbitResponse
     prePath = '../ormData/ormMessdata/10-06-2019/'
     modelPath_hht1 = '../hit_models/hht1/run.madx'
+    gitterPath = '/home/cristopher/HIT/ormData/ormMessdata/10-06-2019/GitterProfile/ProfilePT1/'
     hht1 = [
         '2019-06-10_12-08-47_hht1_h1dg1g.orm_measurement.yml',
         '2019-06-10_12-12-52_hht1_h1dg2g.orm_measurement.yml',
@@ -283,7 +286,7 @@ def fit_hht1():
          'kL_B1QD21',
          'kL_B1QD22',
      ]
-    opt = ORMOptimizer(hht1, modelPath_hht1,
+    opt = ORMOptimizer(hht1, modelPath_hht1, gitterPath,
                        readOrm=False, plotEachM=False)
     singMask = 1e5
     err      = 1e-1
@@ -295,52 +298,76 @@ def testFit():
 
     from OrmAnalysis import ORMOptimizer
     modelPath = '../hit_models/hht3/run.madx'
-    # First session
-    prePath1 ="../ormData/ormMessdata/2018-10-20-orm_measurements/M8-E108-F1-I9-G1/"
+    profilePath = '/home/cristopher/HIT/ormData/ormMessdata/10-06-2019/GitterProfile/ProfilePT3/'
+    # Last session
+    prePath1 ="../ormData/ormMessdata/10-06-2019/"
     messFiles1 = [
-        '2018-10-21_04-23-18_hht3_h1dg1g.orm_measurement.yml',
-        '2018-10-21_04-16-30_hht3_h1dg2g.orm_measurement.yml',
-        #'2018-10-21_04-08-39_hht3_h2dg2g.orm_measurement.yml',
-        #'2018-10-21_03-54-09_hht3_h3dg3g.orm_measurement.yml',
+        '2019-06-10_08-31-35_hht3_h1dg1g.orm_measurement.yml',
+        '2019-06-10_08-36-56_hht3_h1dg2g.orm_measurement.yml',
+        #'2019-06-10_08-48-04_hht3_h2dg2g.orm_measurement.yml',
+        #'2019-06-10_09-00-22_hht3_h3dg3g.orm_measurement.yml',
+        #'2019-06-10_09-20-44_hht3_b3dg2g.orm_measurement.yml',
+        #'2019-06-10_09-44-26_hht3_b3dg3g.orm_measurement.yml',
+        #'2019-06-10_10-10-58_hht3_g3dg3g.orm_measurement.yml',
+        #'2019-06-10_10-41-00_hht3_g3dg5g.orm_measurement.yml',
+        '2019-06-10_11-13-49_hht3_t3dg2g.orm_measurement.yml',
+        '2019-06-10_11-33-56_hht3_t3df1.orm_measurement.yml',
         ]
     for i in range(len(messFiles1)): messFiles1[i] = prePath1 + messFiles1[i]
     pList =  ['kL_H1QD11', 'kL_H1QD12']
-    #dpList = [0.]
-    opt = ORMOptimizer(messFiles1, modelPath,
+    pList =  [
+        'kL_H1QD11',
+        'kL_H1QD12',
+        #'kL_H2QT11',
+        #'kL_H2QT12',
+        #'kL_H2QT13',
+        #'kL_H3QD11',
+        #'kL_H3QD12',
+        #'kL_H3QD21',
+        #'kL_H3QD22',
+        #'kL_B3QD11',
+        #'kL_B3QD12',
+        #'kL_G3QD11',
+        #'kL_G3QD12',
+        #'kL_G3QD21',
+        #'kL_G3QD22',
+        #'kL_G3QD31',
+        #'kL_G3QD32',
+        #'kL_EFG_G3QD41',
+        #'kL_EFG_G3QD42',
+    ]
+    opt = ORMOptimizer(messFiles1, modelPath, profilePath,
                        readOrm=False, plotEachM=False,
                        savePath='.')
     #opt.fitErrorsSimple()
-    singMask = 1e3
-    err      = 1e-3
+    singMask = 1e6
+    err      = 1e1
     maxIts   = 50
     opt.fitErrors(pList, singularMask=singMask,
                   error=err,  maxIt=maxIts,
-                  continueFit=True
-    )
+                  continueFit=True)
 
 def testGitterReader():
     from OrmAnalysis import ORMOptimizer, OrbitResponse
-    from gitterAnalysis import ProfileAnalizer    
+    from ProfileAnalyzer import ProfileAnalyzer    
     gitterPath = '/home/cristopher/HIT/ormData/ormMessdata/10-06-2019/GitterProfile/'
-    gitterProfile = 'ProfilePT3/'
+    gitterProfile = 'ProfilePT2/'
 
     prePath = '../ormData/ormMessdata/10-06-2019/'
     modelPath_hht1 = '../hit_models/hht1/run.madx'
     hht1 = [
-        #'2019-06-10_12-08-47_hht1_h1dg1g.orm_measurement.yml',
-        #'2019-06-10_12-12-52_hht1_h1dg2g.orm_measurement.yml',
-        #'2019-06-10_12-27-49_hht1_b1dg2g.orm_measurement.yml',
-        #'2019-06-10_12-44-54_hht1_b1dg3g.orm_measurement.yml',
+        '2019-06-10_12-08-47_hht1_h1dg1g.orm_measurement.yml',
+        '2019-06-10_12-12-52_hht1_h1dg2g.orm_measurement.yml',
+        '2019-06-10_12-27-49_hht1_b1dg2g.orm_measurement.yml',
+        '2019-06-10_12-44-54_hht1_b1dg3g.orm_measurement.yml',
     ]
     modelPath_hht2 = '../hit_models/hht2/run.madx'
     hht2 = [
         #'2019-06-10_13-35-08_hht2_h1dg1g.orm_measurement.yml',
         #'2019-06-10_13-37-35_hht2_h1dg2g.orm_measurement.yml',
-        #'2019-06-10_13-46-05_hht2_h2dg2g.orm_measurement.yml',
-        #'2019-06-10_13-51-36_hht2_b2dg2g.orm_measurement.yml',
+        '2019-06-10_13-46-05_hht2_h2dg2g.orm_measurement.yml',
+        '2019-06-10_13-51-36_hht2_b2dg2g.orm_measurement.yml',
         '2019-06-10_13-59-38_hht2_b2dg3g.orm_measurement.yml',
-        #'2019-06-10_14-08-29_hht2_t2dg2g.orm_measurement.yml',
-        #'2019-06-10_14-18-50_hht2_t2df1.orm_measurement.yml',
     ]
     modelPath_hht3 = '../hit_models/hht3/run.madx'
     hht3 = [
@@ -353,16 +380,17 @@ def testGitterReader():
         '2019-06-10_10-10-58_hht3_g3dg3g.orm_measurement.yml',
         '2019-06-10_10-41-00_hht3_g3dg5g.orm_measurement.yml',
         ]
-    for mFile in hht3:
+    for mFile in hht2:
         madguiData = prePath+mFile
-        ormA = OrbitResponse(madguiData, modelPath_hht3)
+        ormA = OrbitResponse(madguiData, modelPath_hht3, gitterPath)
         data = ormA.data
-        gR = ProfileAnalizer(data, gitterPath+gitterProfile)
-        gR.fitProfiles(ormA.monitor.upper(), showProfiles=0)
+        gR = ProfileAnalyzer(data, gitterPath+gitterProfile)
+        gR.fitProfiles(ormA.monitor.upper(), showProfiles=0,
+                       skipShots=1)
 
-testGitterReader()
+#testGitterReader()
 #fit_hht1()
-#fit_hht2()
+fit_hht2()
 #preGantry()
 #gantry()
 #testFit()
