@@ -108,12 +108,13 @@ def testStability():
     plt.legend(loc=0)
     plt.show()
 
-def preGantry():
+def preGantry(simpleFit=False):
 
     from OrmAnalysis import ORMOptimizer
     modelPath = '../hit_models/hht3/run.madx'
     # First session
     prePath1 ="../ormData/ormMessdata/2018-10-20-orm_measurements/M8-E108-F1-I9-G1/"
+    profilePath = '/home/cristopher/HIT/ormData/ormMessdata/10-06-2019/GitterProfile/ProfilePT3/'
     messFiles1 = [
         '2018-10-21_04-23-18_hht3_h1dg1g.orm_measurement.yml',
         '2018-10-21_04-16-30_hht3_h1dg2g.orm_measurement.yml',
@@ -147,9 +148,6 @@ def preGantry():
     for i in range(len(messFiles3)): messFiles3[i] = prePath3 + messFiles3[i]
     for i in range(len(messFiles4)): messFiles4[i] = prePath4 + messFiles4[i]
 
-    #opt = ORMOptimizer(messFiles1, modelPath,
-    #                   readOrm=False, plotEachM=False)
-    #opt.fitErrorsSimple()
     pList =  [
         'kL_H1QD11',
         'kL_H1QD12',
@@ -163,16 +161,20 @@ def preGantry():
         'kL_B3QD11',
         'kL_B3QD12',
     ]
-    opt = ORMOptimizer(messFiles4, modelPath,
+    opt = ORMOptimizer(messFiles4, modelPath, profilePath,
                        readOrm=False, plotEachM=False,
-                       savePath='../ormBericht/NotSimpleResults/hht3')
+                       plotShots=False)
+                       #savePath='../ormBericht/NotSimpleResults/hht3')
     singMask = 1e5
     err      = 1e-1
     maxIts   = 200
-    opt.fitErrors(pList, singularMask=singMask,
-                  error=err, maxIt=maxIts)
+    if simpleFit:
+        opt.fitErrorsSimple(plotMeas=1)
+    else:
+        opt.fitErrors(pList, singularMask=singMask,
+                      error=err,  maxIt=maxIts)
 
-def gantry():
+def gantry(simpleFit=False):
     
     from OrmAnalysis import ORMOptimizer
     modelPath = 'hht3/run.madx'
@@ -180,12 +182,12 @@ def gantry():
     # First session
     prePath = '../ormData/ormMessdata/10-06-2019/'
     messFiles = [
-        '2019-06-10_08-31-35_hht3_h1dg1g.orm_measurement.yml',
-        '2019-06-10_08-36-56_hht3_h1dg2g.orm_measurement.yml',
-        '2019-06-10_08-48-04_hht3_h2dg2g.orm_measurement.yml',
-        '2019-06-10_09-00-22_hht3_h3dg3g.orm_measurement.yml',
-        '2019-06-10_09-20-44_hht3_b3dg2g.orm_measurement.yml',
-        '2019-06-10_09-44-26_hht3_b3dg3g.orm_measurement.yml',
+        #'2019-06-10_08-31-35_hht3_h1dg1g.orm_measurement.yml',
+        #'2019-06-10_08-36-56_hht3_h1dg2g.orm_measurement.yml',
+        #'2019-06-10_08-48-04_hht3_h2dg2g.orm_measurement.yml',
+        #'2019-06-10_09-00-22_hht3_h3dg3g.orm_measurement.yml',
+        #'2019-06-10_09-20-44_hht3_b3dg2g.orm_measurement.yml',
+        #'2019-06-10_09-44-26_hht3_b3dg3g.orm_measurement.yml',
         '2019-06-10_10-10-58_hht3_g3dg3g.orm_measurement.yml',
         '2019-06-10_10-41-00_hht3_g3dg5g.orm_measurement.yml',
         '2019-06-10_11-13-49_hht3_t3dg2g.orm_measurement.yml',
@@ -220,11 +222,13 @@ def gantry():
     singMask = 1e6
     err      = 1e-1
     maxIts   = 50
-    #opt.fitErrorsSimple(singularMask=singMask)
-    opt.fitErrors(pList, singularMask=singMask,
-                  error=err,maxIt=maxIts)
+    if simpleFit:
+        opt.fitErrorsSimple(plotMeas=1)
+    else:
+        opt.fitErrors(pList, singularMask=singMask,
+                      error=err,  maxIt=maxIts)
     
-def fit_hht2():
+def fit_hht2(simpleFit=False):
     
     from OrmAnalysis import ORMOptimizer, OrbitResponse
     prePath = '../ormData/ormMessdata/10-06-2019/'
@@ -258,10 +262,13 @@ def fit_hht2():
     singMask = 1e6
     err      = 1e-1
     maxIts   = 2
-    opt.fitErrors(pList_hht2, singularMask=singMask,
-                  error=err,  maxIt=maxIts)
+    if simpleFit:
+        opt.fitErrorsSimple(plotMeas=True)
+    else:
+        opt.fitErrors(pList_hht2, singularMask=singMask,
+                      error=err,  maxIt=maxIts)
 
-def fit_hht1():
+def fit_hht1(simpleFit=False):
     from OrmAnalysis import ORMOptimizer, OrbitResponse
     prePath = '../ormData/ormMessdata/10-06-2019/'
     modelPath_hht1 = '../hit_models/hht1/run.madx'
@@ -272,7 +279,7 @@ def fit_hht1():
         '2019-06-10_12-27-49_hht1_b1dg2g.orm_measurement.yml',
         '2019-06-10_12-44-54_hht1_b1dg3g.orm_measurement.yml',
         '2019-06-10_13-04-07_hht1_t1dg2g.orm_measurement.yml',
-        #'2019-06-10_13-17-21_hht1_t1df1.orm_measurement.yml',
+        '2019-06-10_13-17-21_hht1_t1df1.orm_measurement.yml',
     ]
     for i in range(len(hht1)): hht1[i] = prePath + hht1[i]
     pList_hht1 =  [
@@ -288,8 +295,11 @@ def fit_hht1():
     singMask = 1e5
     err      = 1e-1
     maxIts   = 200
-    opt.fitErrors(pList_hht1, singularMask=singMask,
-                  error=err,  maxIt=maxIts)
+    if simpleFit:
+        opt.fitErrorsSimple(plotMeas=True)
+    else:
+        opt.fitErrors(pList_hht1, singularMask=singMask,
+                      error=err,  maxIt=maxIts)
 
 def testFit():
 
@@ -335,7 +345,7 @@ def testFit():
     ]
     opt = ORMOptimizer(messFiles1, modelPath, profilePath,
                        readOrm=False, plotEachM=False,
-                       savePath='.')
+                       plotShots=False, savePath='.')
     #opt.fitErrorsSimple()
     singMask = 1e6
     err      = 1e1
@@ -386,8 +396,8 @@ def testGitterReader():
                        skipShots=1)
 
 #testGitterReader()
-#fit_hht1()
-#fit_hht2()
-#preGantry()
-gantry()
+fit_hht1(simpleFit=1)
+#fit_hht2(simpleFit=1)
+#preGantry(simpleFit=1)
+#gantry(simpleFit=1)
 #testFit()

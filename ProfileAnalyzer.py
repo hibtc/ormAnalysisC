@@ -190,11 +190,11 @@ class ProfileAnalyzer:
             muxOptik = mux[mask]
             muxOptikFiltered = self._filterPeaks(muxOptik)
             messWertx, dmessWertx_syst, dmessWertx_stat = \
-                                       self._computeMean(muxOptik, dmux, mask)
+                                       self._computeMean(muxOptikFiltered, dmux, mask)
             muyOptik = muy[mask]
             muyOptikFiltered = self._filterPeaks(muyOptik)
             messWerty, dmessWerty_syst, dmessWerty_stat = \
-                                       self._computeMean(muyOptik, dmuy, mask)
+                                       self._computeMean(muyOptikFiltered, dmuy, mask)
             messWertex.append(messWertx)
             dMessWertex.append([dmessWertx_syst,
                                 dmessWertx_stat])

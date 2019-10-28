@@ -92,7 +92,7 @@ class OrbitResponse:
         except:
             print('Sequence not found!')
 
-    def ormMeasured(self):
+    def ormMeasured(self, plotShots=False):
         """
         Computes the measured orbit responses at an specifical
         monitor, returns the orbit response entries and their errors
@@ -105,7 +105,7 @@ class OrbitResponse:
     
         profAnalizer = ProfileAnalyzer(self.data, self.profilePath)
         profAnalizer.fitProfiles(self.monitor.upper(), showProfiles=False,
-                                 skipShots=1, plot=False)
+                                 skipShots=1, plot=plotShots)
         pOrmx, pOrmy = profAnalizer.messDatax, profAnalizer.messDatay
         gridProfiles = (len(pOrmx) != 0)
         print(' GridProfiles: ', gridProfiles)
@@ -346,7 +346,8 @@ class OrbitResponse:
 class ORMOptimizer:
 
     def __init__(self, messFiles, madxFile, profilePath,
-                 readOrm=False, plotEachM=True, savePath='.'):
+                 readOrm=False, plotEachM=True,
+                 plotShots=False, savePath='.'):
         self.messFiles = messFiles
         self.madxFile  = madxFile
         self.orbitResponseAnalyzer = OrbitResponse(messFiles[0], madxFile, profilePath)
@@ -355,7 +356,7 @@ class ORMOptimizer:
         self.nMonitors = len(self.monitors)
         self.nParams   = 0
         self.savePath  = savePath
-        self.ormMx, self.ormMy = self.initializeOrm(False)
+        self.ormMx, self.ormMy = self.initializeOrm(False, plotShots)
         self.nKickers = len(self.kickers)
         self.dCij_x = 0
         self.dCij_y = 0
@@ -382,7 +383,7 @@ class ORMOptimizer:
             monitors.append(orbResponse.getMonitor())
         return monitors
 
-    def initializeOrm(self, showPlots=False):
+    def initializeOrm(self, showPlots=False, plotShots=False):
         """
         Computes the measured orbit response and the corresponding
         modeled response
@@ -400,6 +401,8 @@ class ORMOptimizer:
             kickers =  orA.kickers
             for k in kickers:
                 if k not in self.kickers: self.kickers[k] = len(self.kickers) + 1
+            if plotShots:
+                mMeasured, dmMeasured = orA.ormMeasured(plotShots)
             mMeasured, dmMeasured = orA.ormMeasured()
             mModelx,   mModely    = orA.ormModel()
             mMx  = mMeasured[0]
@@ -549,11 +552,13 @@ class ORMOptimizer:
         gmey = sum(self.dCij_y**2)
         return gmex, gmey
 
-    def fitErrorsSimple(self, error=1e-9, plot=True, maxIt=100, singularMask=0):
+    def fitErrorsSimple(self, error=1e-9, plot=True, maxIt=100, singularMask=0,
+                        plotMeas=False):
         """
         Fits the errors until a user defined precision
         is reached. Takes into consideration the Global Machine
-        Error (gme)
+        Error (gme).
+        If the flag plotMeas is True, the fit curve wont be showed.
         """
         if(singularMask): self.singularMask = singularMask
         self.initializeAMat()
@@ -581,7 +586,7 @@ class ORMOptimizer:
             it += 1
         self._displayResults(kickerErrFit,monxErrFit,monyErrFit,
                              it, gme, converged)
-        self._plotFit(modelx0,modely0)
+        self._plotFit(modelx0,modely0,plotMeas)
 
     def actualizeModel(self, errx, erry):
         paramErrx = errx[:self.nParams]
@@ -866,7 +871,7 @@ class ORMOptimizer:
             percent = (percent - 1)*100
             print('{} : {} %'.format(self.pList[p], round(percent,5)))
 
-    def _plotFit(self, modelx0, modely0):
+    def _plotFit(self, modelx0, modely0, plotMeas=False):
         kickers = list(self.kickers.keys())
         xlabels = []
         monPos  = []
@@ -877,38 +882,67 @@ class ORMOptimizer:
             xlabels.append(kickers[int(Mx[1][i])])
             if (Mx[1][i] == 0): monPos.append(i)
 
-        plt.figure(1)
-        plt.errorbar(x,Mx[2],yerr=Mx[3],marker='.',label='Measured',
-                     linestyle='', markersize=10)
-        plt.plot(x,modelx0,label='Model',marker='', linewidth=2)
-        plt.xlim(-0.2, x[-1]+0.25)
+        #######################################
+
+        #     Horizontal Plots               #
+        
+        ######################################
+        plt.figure(num=1, figsize=(12.0, 4.8), dpi=120)
+        plt.errorbar(x, Mx[2], yerr=Mx[3],
+                     marker='o', label='Measured',
+                     linestyle='', markersize=5)
+        plt.plot(x, modelx0,
+                 label='Model', marker='X',
+                 markersize=7, linewidth=1.5,
+                 linestyle=':')
+        plt.xlim(-0.5, x[-1]+0.25)
         plt.ylim(min(Mx[2])-2., max(Mx[2])+2.)
-        plt.plot(x,Mx[4],label='Fit',marker='',linewidth=1.5)
+        if(not plotMeas):
+            plt.plot(x, Mx[4],label='Fit',marker='',linewidth=1.5)
         plt.ylabel(r'Horizontal orbit response [mm mrad$^{-1}$]',fontsize=14)
+        plt.xticks([],[])
         plt.legend(loc=0)
         plt.tight_layout()
         for i in range(len(monPos)):
-            plt.axvline(monPos[i],linestyle='--')
-            plt.text(monPos[i]+0.2, min(Mx[2]), self.monitors[i],
+            plt.axvline(monPos[i]-0.5, linestyle='--', alpha=0.5)
+            plt.text(monPos[i]-0.3, 0.,#min(Mx[2]),
+                     #hht1 y = 35.
+                     #hht2 y = 15.
+                     #preGantry and Gantry y = 0.
+                     self.monitors[i],
                      rotation=90, alpha=0.5, fontsize=12)
 
-        plt.figure(2)
-        plt.errorbar(x,My[2],yerr=Mx[3],marker='.',label='Measured',
-                     linestyle='',markersize=10)
-        plt.plot(x,modely0,label='Model',marker='', linewidth=2)
-        plt.xlim(-0.2, x[-1]+0.25)
+        
+        #######################################
+
+        #     Vertical Plots               #
+        
+        ######################################
+
+        plt.figure(num=2, figsize=(12.0, 4.8), dpi=120)
+        plt.errorbar(x, My[2], yerr=Mx[3],
+                     marker='o', label='Measured',
+                     linestyle='', markersize=5)
+        plt.plot(x, modely0,
+                 label='Model', marker='X',
+                 markersize=7, linewidth=1.5,
+                 linestyle=':')
+        plt.xlim(-0.5, x[-1]+0.25)
         plt.ylim(min(My[2])-2., max(My[2])+2.)
-        plt.plot(x,My[4],label='Fit',marker='', linewidth=1.5)
+        if(not plotMeas):
+            plt.plot(x,My[4],label='Fit',marker='', linewidth=1.5)
         plt.ylabel(r'Vertical orbit response [mm mrad$^{-1}$]',fontsize=14)
         plt.legend(loc=0)
-        plt.tight_layout()
         locs, labels = plt.xticks()
         plt.xticks(x, xlabels, rotation='vertical', fontsize=10)
         plt.legend(loc=0)
         for i in range(len(monPos)):
-            plt.axvline(monPos[i],linestyle='--')
-            plt.text(monPos[i]+0.2, min(Mx[2]), self.monitors[i],
+            plt.axvline(monPos[i]-0.5, linestyle='--', alpha=0.5)
+            plt.text(monPos[i]-0.3, min(Mx[2]),
+                     #hht1 y = -15.
+                     self.monitors[i],
                      rotation=90, alpha=0.5, fontsize=12)
+        plt.tight_layout()
         plt.show()
         ormMx = self.ormMx
         ormMy = self.ormMy
