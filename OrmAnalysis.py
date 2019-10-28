@@ -42,12 +42,14 @@ class OrbitResponse:
 
     def readData(self, dataFile):
         """
-        Normal ordering for kickers.
-        Namely, according to their position s
-        and in increasing order
+        Reads data from the yaml file as written by madgui
+        and returns an ordered dictionary
         """
         with open(dataFile) as f: data = safe_load(f)
         knobs = data['knobs']
+        # Normal ordering for kickers.
+        # Namely, according to their position s
+        # and in increasing order
         data['records'] = sorted( data['records'],
                                   key=lambda record: -1 if not record['optics']
                                   else knobs.index(

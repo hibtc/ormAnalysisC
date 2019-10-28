@@ -43,6 +43,11 @@ class ProfileAnalyzer:
         G = a*np.exp(-(x-mu)**2/(2*sig**2)) + l
         return G
 
+    def doppelGauss(self, x, a1, a2, mu1, mu2, sig1, sig2, l):
+        doppelG = a1*np.exp(-(x-mu1)**2/(2*sig1**2)) + \
+                  a2*np.exp(-(x-mu2)**2/(2*sig2**2)) + l
+        return doppelG
+
     def plotCurve(self, gitterFile):
         info = self.getMessInfo(gitterFile)
         data = np.loadtxt(gitterFile, delimiter=';',skiprows=34,
@@ -109,7 +114,7 @@ class ProfileAnalyzer:
         print('------------------------------')
         print('  Fitting monitor profiles ')
         print('- Monitor: {}'.format(monitor))
-        print('- Anzahl von Files: {}'.format(len(gitterFiles)))
+        print('- Number of Files: {}'.format(len(gitterFiles)))
         print('------------------------------')
             
         for f in gitterFiles:
@@ -155,7 +160,6 @@ class ProfileAnalyzer:
             self.messDatax, self.messDatay = self.formatMeasurements(messung)
             if(plot):
                 self.plotFits(positionFits, monitor, messung)
-                #self.plotHistos(positionFits)
         else:
             self.messDatax, self.messDatay = {},{}
 
@@ -184,21 +188,13 @@ class ProfileAnalyzer:
             mask  = mask1*mask2
             tOptik = t[mask]
             muxOptik = mux[mask]
-            muxOptikFiltered = muxOptik
-            if(len(muxOptik) > 3):
-                muxOptikFiltered = np.sort(muxOptik[1:])
-                muxOptikFiltered = muxOptikFiltered[1:-1]
-            messWertx = np.mean(muxOptikFiltered)
-            dmessWertx_syst = np.sqrt(sum(dmux[mask]**2))/len(dmux[mask])
-            dmessWertx_stat = np.std(muxOptikFiltered)
+            muxOptikFiltered = self._filterPeaks(muxOptik)
+            messWertx, dmessWertx_syst, dmessWertx_stat = \
+                                       self._computeMean(muxOptik, dmux, mask)
             muyOptik = muy[mask]
-            muyOptikFiltered = muyOptik
-            if(len(muxOptik) > 3):
-                muyOptikFiltered = np.sort(muyOptik[1:])
-                muyOptikFiltered = muyOptikFiltered[1:-1]
-            messWerty = np.mean(muyOptikFiltered)
-            dmessWerty_syst = np.sqrt(sum(dmuy[mask]**2))/len(dmuy[mask])
-            dmessWerty_stat = np.std(muyOptikFiltered)
+            muyOptikFiltered = self._filterPeaks(muyOptik)
+            messWerty, dmessWerty_syst, dmessWerty_stat = \
+                                       self._computeMean(muyOptik, dmuy, mask)
             messWertex.append(messWertx)
             dMessWertex.append([dmessWertx_syst,
                                 dmessWertx_stat])
@@ -208,6 +204,22 @@ class ProfileAnalyzer:
 
         return [messWertex, dMessWertex, messWertey, dMessWertey]
 
+    def _computeMean(self, data, error, timeMask):
+        mean = np.mean(data)
+        error_syst = np.sqrt(sum(error[timeMask]**2))/len(error[timeMask])
+        error_stat = np.std(data)
+        return mean, error_syst, error_stat
+        
+    def _filterPeaks(self, data):
+        filteredData = data
+        if(len(data) > 3):
+            # Taking out the first measurement
+            # It is always buggy 
+            filteredData = np.sort(data[1:])
+            # Taking out the abnormal values
+            filteredData = filteredData[1:-1]
+        return filteredData            
+        
     def plotFits(self, positionFits, monitor, messWerte):
         """
         Plots the computed mean values of the fitted peaks
@@ -273,7 +285,7 @@ class ProfileAnalyzer:
         """
         ormMessx = {}
         ormMessy = {}
-
+        # Conversion in [mm]
         messWertex  = np.array(messWerte[0])*1e-3
         dMessWertex = np.array(messWerte[1])*1e-3
         messWertey  = np.array(messWerte[2])*1e-3
@@ -291,30 +303,6 @@ class ProfileAnalyzer:
             ormMessx.update( {kick:[messWertxi, dmessWertxi]} )
             ormMessy.update( {kick:[messWertyi, dmessWertyi]} )
         return ormMessx, ormMessy
-    
-    def plotHistos(self, positionFits):
-
-        positionFits = np.transpose(positionFits)
-        t = positionFits[0]
-        mux  = positionFits[1]
-        dmux = positionFits[2]
-        muy  = positionFits[3]
-        dmuy = positionFits[4]
-
-        plt.figure(1)
-        plt.hist(mux,bins=15)
-        plt.title(r'$\mu_x$')
-        plt.figure(2)
-        plt.hist(dmux,bins=10)
-        plt.title(r'$\Delta \mu_x$')
-        plt.figure(3)
-        plt.hist(muy,bins=15)
-        plt.title(r'$\mu_y$')
-        plt.figure(4)
-        plt.hist(dmuy,bins=10)
-        plt.title(r'$\Delta \mu_y$')
-
-        plt.show()
 
     def getTimeMask(self):
         data = self.madguiData
@@ -332,5 +320,4 @@ class ProfileAnalyzer:
             t1 = change[-1].split(' ')
             timeMasks.append([self.timeToMin(t0[1]),
                               self.timeToMin(t1[1])])
-
         return timeMasks, kickers

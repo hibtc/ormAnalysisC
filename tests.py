@@ -217,9 +217,9 @@ def gantry():
     opt = ORMOptimizer(messFiles, modelPath, profilePath,
                        readOrm=False, plotEachM=False,
                        savePath='../ormBericht/NotSimpleResults/gantry')
-    singMask = 1e7
+    singMask = 1e6
     err      = 1e-1
-    maxIts   = 100
+    maxIts   = 50
     #opt.fitErrorsSimple(singularMask=singMask)
     opt.fitErrors(pList, singularMask=singMask,
                   error=err,maxIt=maxIts)
@@ -241,10 +241,7 @@ def fit_hht2():
     ]
     
     for i in range(len(hht2)): hht2[i] = prePath + hht2[i]
-    #opt = ORMOptimizer(hht2, modelPath,
-    #                   readOrm=False, plotEachM=False)
-    #opt.fitErrorsSimple()
-   
+    
     pList_hht2 =  [
         'kL_H1QD11',
         'kL_H1QD12',
@@ -260,7 +257,7 @@ def fit_hht2():
                        readOrm=False, plotEachM=False)
     singMask = 1e6
     err      = 1e-1
-    maxIts   = 200
+    maxIts   = 2
     opt.fitErrors(pList_hht2, singularMask=singMask,
                   error=err,  maxIt=maxIts)
 
@@ -380,7 +377,7 @@ def testGitterReader():
         '2019-06-10_10-10-58_hht3_g3dg3g.orm_measurement.yml',
         '2019-06-10_10-41-00_hht3_g3dg5g.orm_measurement.yml',
         ]
-    for mFile in hht2:
+    for mFile in hht3:
         madguiData = prePath+mFile
         ormA = OrbitResponse(madguiData, modelPath_hht3, gitterPath)
         data = ormA.data
@@ -390,7 +387,7 @@ def testGitterReader():
 
 #testGitterReader()
 #fit_hht1()
-fit_hht2()
+#fit_hht2()
 #preGantry()
-#gantry()
+gantry()
 #testFit()
