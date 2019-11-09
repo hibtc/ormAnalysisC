@@ -898,17 +898,20 @@ class ORMOptimizer:
         plt.xlim(-0.5, x[-1]+0.25)
         plt.ylim(min(Mx[2])-2., max(Mx[2])+2.)
         if(not plotMeas):
-            plt.plot(x, Mx[4],label='Fit',marker='',linewidth=1.5)
+            plt.plot(x, Mx[4],label='Fit',
+                     marker='X', markersize=7,
+                     linewidth=1.5, linestyle=':')
         plt.ylabel(r'Horizontal orbit response [mm mrad$^{-1}$]',fontsize=14)
         plt.xticks([],[])
         plt.legend(loc=0)
         plt.tight_layout()
         for i in range(len(monPos)):
             plt.axvline(monPos[i]-0.5, linestyle='--', alpha=0.5)
-            plt.text(monPos[i]-0.3, 0.,#min(Mx[2]),
+            plt.text(monPos[i]-0.3, -12.,#min(Mx[2]),
                      #hht1 y = 35.
                      #hht2 y = 15.
-                     #preGantry and Gantry y = 0.
+                     #preGantry y = 0.
+                     #Gantry = -12.
                      self.monitors[i],
                      rotation=90, alpha=0.5, fontsize=12)
 
@@ -930,7 +933,9 @@ class ORMOptimizer:
         plt.xlim(-0.5, x[-1]+0.25)
         plt.ylim(min(My[2])-2., max(My[2])+2.)
         if(not plotMeas):
-            plt.plot(x,My[4],label='Fit',marker='', linewidth=1.5)
+            plt.plot(x,My[4],label='Fit',
+                     marker='X', markersize=7,
+                     linewidth=1.5, linestyle=':')
         plt.ylabel(r'Vertical orbit response [mm mrad$^{-1}$]',fontsize=14)
         plt.legend(loc=0)
         locs, labels = plt.xticks()
@@ -938,7 +943,8 @@ class ORMOptimizer:
         plt.legend(loc=0)
         for i in range(len(monPos)):
             plt.axvline(monPos[i]-0.5, linestyle='--', alpha=0.5)
-            plt.text(monPos[i]-0.3, min(Mx[2]),
+            plt.text(monPos[i]-0.3, -30.,#min(Mx[2]),
+                     #gantry = -30.,
                      #hht1 y = -15.
                      self.monitors[i],
                      rotation=90, alpha=0.5, fontsize=12)
