@@ -84,19 +84,33 @@ class ProfileAnalyzer:
         print('---------------------------')
 
         plt.figure(1)
-        plt.plot(posx, x, marker='.', label='Data', linestyle='')
-        plt.plot(xfit, self.gaussCurve(xfit, *Gx), label='Fit')
+        plt.plot(posx, x,
+                 marker='.', markersize=8,
+                 label='Wire readout', linestyle='')
+        plt.plot(xfit, self.gaussCurve(xfit, *Gx),
+                 linewidth=1.5,
+                 linestyle='--',
+                 label='Gauss fit')
         plt.xlabel('x Position [mm]')
         plt.ylabel('Intensity [a.U.]')
+        for i in posx: plt.axvline(i,color='gray',linewidth=0.6)
         plt.legend(loc=0)
+        plt.tight_layout()
 
         plt.figure(2)
-        plt.plot(posx, y, marker='.', label='Data', linestyle='')
-        plt.plot(xfit, self.gaussCurve(xfit, *Gy), label='Fit')
+        plt.plot(posx, y,
+                 marker='.', markersize=8,
+                 label='Wire readout', linestyle='')
+        plt.plot(xfit, self.gaussCurve(xfit, *Gy),
+                 linewidth=1.5,
+                 linestyle='--',
+                 label='Gauss fit')
         plt.xlabel('y Position [mm]')
         plt.ylabel('Intensity [a.U.]')
+        for i in posx: plt.axvline(i,color='gray',linewidth=0.6)
+        plt.tight_layout()
         plt.legend(loc=0)
-
+        
         plt.show()
 
     def timeToMin(self, time):
@@ -108,6 +122,8 @@ class ProfileAnalyzer:
         """
         Fits the monitor profiles with a Gauss peak
         """
+        # Uncomment to plot beam profiles 
+        # showProfiles=True
         gitterFiles = glob.glob((self.monitorPath+monitor+'/*'))
         positionFits = []
 
