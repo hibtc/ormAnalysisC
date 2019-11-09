@@ -182,12 +182,12 @@ def gantry(simpleFit=False):
     # First session
     prePath = '../ormData/ormMessdata/10-06-2019/'
     messFiles = [
-        #'2019-06-10_08-31-35_hht3_h1dg1g.orm_measurement.yml',
-        #'2019-06-10_08-36-56_hht3_h1dg2g.orm_measurement.yml',
-        #'2019-06-10_08-48-04_hht3_h2dg2g.orm_measurement.yml',
-        #'2019-06-10_09-00-22_hht3_h3dg3g.orm_measurement.yml',
-        #'2019-06-10_09-20-44_hht3_b3dg2g.orm_measurement.yml',
-        #'2019-06-10_09-44-26_hht3_b3dg3g.orm_measurement.yml',
+        '2019-06-10_08-31-35_hht3_h1dg1g.orm_measurement.yml',
+        '2019-06-10_08-36-56_hht3_h1dg2g.orm_measurement.yml',
+        '2019-06-10_08-48-04_hht3_h2dg2g.orm_measurement.yml',
+        '2019-06-10_09-00-22_hht3_h3dg3g.orm_measurement.yml',
+        '2019-06-10_09-20-44_hht3_b3dg2g.orm_measurement.yml',
+        '2019-06-10_09-44-26_hht3_b3dg3g.orm_measurement.yml',
         '2019-06-10_10-10-58_hht3_g3dg3g.orm_measurement.yml',
         '2019-06-10_10-41-00_hht3_g3dg5g.orm_measurement.yml',
         '2019-06-10_11-13-49_hht3_t3dg2g.orm_measurement.yml',
@@ -220,8 +220,8 @@ def gantry(simpleFit=False):
                        readOrm=False, plotEachM=False,
                        savePath='../ormBericht/NotSimpleResults/gantry')
     singMask = 1e6
-    err      = 1e-1
-    maxIts   = 50
+    err      = 1.
+    maxIts   = 200
     if simpleFit:
         opt.fitErrorsSimple(plotMeas=1)
     else:
@@ -261,7 +261,7 @@ def fit_hht2(simpleFit=False):
                        readOrm=False, plotEachM=False)
     singMask = 1e6
     err      = 1e-1
-    maxIts   = 2
+    maxIts   = 200
     if simpleFit:
         opt.fitErrorsSimple(plotMeas=True)
     else:
@@ -396,8 +396,8 @@ def testGitterReader():
                        skipShots=1)
 
 #testGitterReader()
-fit_hht1(simpleFit=1)
-#fit_hht2(simpleFit=1)
-#preGantry(simpleFit=1)
-#gantry(simpleFit=1)
+#fit_hht1(simpleFit=0)
+#fit_hht2(simpleFit=0)
+#preGantry(simpleFit=0)
+gantry(simpleFit=0)
 #testFit()
