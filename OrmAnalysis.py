@@ -92,6 +92,7 @@ class OrbitResponse:
         except:
             print('Sequence not found!')
 
+    # Set here plotShots True to show the grid Reads with fitted peaks
     def ormMeasured(self, plotShots=False):
         """
         Computes the measured orbit responses at an specifical
