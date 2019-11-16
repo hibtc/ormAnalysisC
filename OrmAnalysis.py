@@ -414,6 +414,8 @@ class ORMOptimizer:
             for k_i in range(len(kickers)):
                 orbitResponse_x.append([mon_i, k_i, mMx[k_i], dmMx[k_i], mModelx[k_i]])
                 orbitResponse_y.append([mon_i, k_i, mMy[k_i], dmMy[k_i], mModely[k_i]])
+        #np.savetxt('ormx.txt',orbitResponse_x, fmt =' %i %i %f %f %f')
+        #np.savetxt('ormy.txt',orbitResponse_y, fmt =' %i %i %f %f %f')
         return orbitResponse_x, orbitResponse_y
 
     def setdCij(self):
