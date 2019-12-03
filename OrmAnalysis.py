@@ -92,7 +92,12 @@ class OrbitResponse:
         except:
             print('Sequence not found!')
 
-    # Set here plotShots True to show the grid Reads with fitted peaks
+
+    #####################################################################        
+    # Set here plotShots True to show the grid Reads with fitted peaks  #
+    # Set showProfiles to True to show each measurement                 #
+    #####################################################################
+
     def ormMeasured(self, plotShots=False):
         """
         Computes the measured orbit responses at an specifical
@@ -103,8 +108,15 @@ class OrbitResponse:
         madx = self.madx
         self.madx.call(file=self.madxModelFile, chdir=True)
         self.madx.globals.update(self.data['model'])
-    
-        profAnalizer = ProfileAnalyzer(self.data, self.profilePath)
+        if (self.monitor == 'h1dg1g' or
+            self.monitor == 'h1dg2g' or
+            self.monitor == 'g3dg3g' or
+            self.monitor == 'g3dg5g' ):
+            profilePath = '/home/cristopher/HIT/ormData/ormMessdata/17-11-2019/ORM_profile/'
+            profAnalizer = ProfileAnalyzer(self.data, profilePath)
+        else:
+            profAnalizer = ProfileAnalyzer(self.data, self.profilePath)
+
         profAnalizer.fitProfiles(self.monitor.upper(), showProfiles=False,
                                  skipShots=1, plot=plotShots)
         pOrmx, pOrmy = profAnalizer.messDatax, profAnalizer.messDatay
@@ -140,10 +152,18 @@ class OrbitResponse:
                 orbR_kx = -(pOrmx[self.kickers[k]][0] - pOrmx[''][0]) / kickDiff
                 orbR_ky = (pOrmy[self.kickers[k]][0] - pOrmy[''][0]) / kickDiff
                 # Gaussian error propagation
-                orbRErr_kx = np.sqrt(pOrmx[self.kickers[k]][1]**2 + pOrmx[''][1]**2) \
-                             / kickDiff
-                orbRErr_ky = np.sqrt(pOrmy[self.kickers[k]][1]**2 + pOrmy[''][1]**2) \
-                             / kickDiff
+                if self.monitor == 'h1dg1g':
+                    print(' Using fit for H1DG1G')
+                    sigx = 0.41*10**-3
+                    sigy = 0.059*10**-3
+                    orbRErr_kx = np.sqrt(2*sigx**2) / kickDiff
+                    orbRErr_ky = np.sqrt(2*sigy**2) / kickDiff
+                else:
+                    orbRErr_kx = np.sqrt(pOrmx[self.kickers[k]][1]**2 + pOrmx[''][1]**2) \
+                                 / kickDiff
+                    orbRErr_ky = np.sqrt(pOrmy[self.kickers[k]][1]**2 + pOrmy[''][1]**2) \
+                                 / kickDiff
+                
                 orbitResponse.append([orbR_kx, orbR_ky])
                 orbitResponseErr.append([orbRErr_kx, orbRErr_ky])
             else:
@@ -656,6 +676,7 @@ class ORMOptimizer:
         converged = False
         it = 0
 
+        # TODO: Implement adapative SV control
         while (not converged and it < maxIt):
             gmex_old, gmey_old = self.getGlobalMachineError()
             print('    Iteration:   ', it+1)
@@ -671,13 +692,16 @@ class ORMOptimizer:
             gmex_new, gmey_new = self.getGlobalMachineError()
             converged = (abs(gmex_new + gmey_new - gmex_old - gmey_old) < error)
             it += 1
+            #if(it == 20): self.singularMask *= 0.1
 
+        """
         np.save('errx', errx)
         np.save('erry', erry)
         np.save('dp0List', self.dp0List)
         np.save('dmonx',   self.dMonitors_x)
         np.save('dmony',   self.dMonitors_y)
         np.save('dkickers',self.dKickers)
+        """
         self._displayResultsNotSimple(it, gme, converged, plot=True)
         self._plotFit(modelx0,modely0)
 
@@ -884,7 +908,12 @@ class ORMOptimizer:
         for i in range (len(Mx[1])):
             xlabels.append(kickers[int(Mx[1][i])])
             if (Mx[1][i] == 0): monPos.append(i)
-
+        """
+        ormxJuni = '../ormBericht/NotSimpleResults/gantry/ormxJuni.txt'
+        Mx1 = np.loadtxt(ormxJuni, skiprows=1)
+        Mx1 = np.transpose(Mx1)
+        plotMeas=True
+        """
         #######################################
 
         #     Horizontal Plots               #
@@ -893,7 +922,12 @@ class ORMOptimizer:
         plt.figure(num=1, figsize=(12.0, 4.8), dpi=120)
         plt.errorbar(x, Mx[2], yerr=Mx[3],
                      marker='o', label='Measured',
+                     #capsize=3, elinewidth=2,
                      linestyle='', markersize=5)
+        #plt.errorbar(x, Mx1[2], yerr=Mx1[3],
+        #             marker='o', label='Measured(Juni)',
+        #             linestyle='', markersize=5,
+        #             alpha=0.7)
         plt.plot(x, modelx0,
                  label='Model', marker='X',
                  markersize=7, linewidth=1.5,
@@ -910,7 +944,7 @@ class ORMOptimizer:
         plt.tight_layout()
         for i in range(len(monPos)):
             plt.axvline(monPos[i]-0.5, linestyle='--', alpha=0.5)
-            plt.text(monPos[i]-0.3, -12.,#min(Mx[2]),
+            plt.text(monPos[i]-0.3, -5.,#min(Mx[2]),
                      #hht1 y = 35.
                      #hht2 y = 15.
                      #preGantry y = 0.
@@ -959,9 +993,9 @@ class ORMOptimizer:
             ormMx[i]=np.append(ormMx[i], modelx0[i])
             ormMy[i]=np.append(ormMy[i], modely0[i])
         head = 'Monitor  Kicker   orm   dorm   madxOrm  fitOrm'
-        np.savetxt('{}/ormx.txt'.format(self.savePath), ormMx,
+        np.savetxt('./ormx.txt'.format(self.savePath), ormMx,
                    fmt=['%i','%i','%e', '%e','%e','%e'],
                    delimiter='  ', header=head)
-        np.savetxt('{}/ormy.txt'.format(self.savePath),
+        np.savetxt('./ormy.txt'.format(self.savePath),
                    ormMy, fmt=['%i','%i','%e', '%e','%e','%e'],
                    delimiter='  ', header=head)
