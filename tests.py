@@ -179,7 +179,6 @@ def gantry(simpleFit=False):
     from OrmAnalysis import ORMOptimizer
     modelPath = 'hht3/run.madx'
     profilePath = '/home/cristopher/HIT/ormData/ormMessdata/10-06-2019/GitterProfile/ProfilePT3/'
-    # First session
     prePath = '../ormData/ormMessdata/10-06-2019/'
     messFiles = [
         '2019-06-10_08-31-35_hht3_h1dg1g.orm_measurement.yml',
@@ -193,7 +192,25 @@ def gantry(simpleFit=False):
         '2019-06-10_11-13-49_hht3_t3dg2g.orm_measurement.yml',
         '2019-06-10_11-33-56_hht3_t3df1.orm_measurement.yml',
         ]
-    for i in range(len(messFiles)): messFiles[i] = prePath + messFiles[i]
+
+    for i in range(len(messFiles)): messFiles[i] = prePath + messFiles[i]  
+
+    profilePath1 = '/home/cristopher/HIT/ormData/ormMessdata/17-11-2019/ORM_profile/'
+    # Last session
+    prePath1 = '../ormData/ormMessdata/17-11-2019/ormMessungen/'
+    messFiles = [
+        prePath1 + '2019-11-17_13-38-51_hht3_h1dg1g.orm_measurement.yml',
+        prePath1 + '2019-11-17_14-49-50_hht3_h1dg2g.orm_measurement.yml',
+        prePath  + '2019-06-10_08-48-04_hht3_h2dg2g.orm_measurement.yml',
+        prePath  + '2019-06-10_09-00-22_hht3_h3dg3g.orm_measurement.yml',
+        prePath  + '2019-06-10_09-20-44_hht3_b3dg2g.orm_measurement.yml',
+        prePath  + '2019-06-10_09-44-26_hht3_b3dg3g.orm_measurement.yml',
+        prePath1 + '2019-11-17_13-58-20_hht3_g3dg3g.orm_measurement.yml',
+        prePath1 + '2019-11-17_14-30-29_hht3_g3dg5g.orm_measurement.yml',
+        prePath  + '2019-06-10_11-13-49_hht3_t3dg2g.orm_measurement.yml',
+        prePath  + '2019-06-10_11-33-56_hht3_t3df1.orm_measurement.yml',
+    ]
+
     pList =  [
         'kL_H1QD11',
         'kL_H1QD12',
@@ -206,7 +223,7 @@ def gantry(simpleFit=False):
         'kL_H3QD22',
         'kL_B3QD11',
         'kL_B3QD12',
-        'gantry_angle',
+        #'gantry_angle',
         'kL_G3QD11',
         'kL_G3QD12',
         'kL_G3QD21',
@@ -220,8 +237,8 @@ def gantry(simpleFit=False):
                        readOrm=False, plotEachM=False,
                        savePath='../ormBericht/NotSimpleResults/gantry')
     singMask = 1e6
-    err      = 1.
-    maxIts   = 200
+    err      = 10
+    maxIts   = 50
     if simpleFit:
         opt.fitErrorsSimple(plotMeas=1)
     else:
@@ -349,7 +366,7 @@ def testFit():
     #opt.fitErrorsSimple()
     singMask = 1e6
     err      = 1e1
-    maxIts   = 50
+    maxIts   = 10
     opt.fitErrors(pList, singularMask=singMask,
                   error=err,  maxIt=maxIts,
                   continueFit=True)
@@ -392,9 +409,8 @@ def testGitterReader():
         ormA = OrbitResponse(madguiData, modelPath_hht3, gitterPath)
         data = ormA.data
         gR = ProfileAnalyzer(data, gitterPath+gitterProfile)
-        gR.fitProfiles(ormA.monitor.upper(), showProfiles=0,
-                       skipShots=1)
-
+        gR.fitProfiles(ormA.monitor.upper(), showProfiles=1, skipShots=0)
+        
 #testGitterReader()
 #fit_hht1(simpleFit=0)
 #fit_hht2(simpleFit=0)
