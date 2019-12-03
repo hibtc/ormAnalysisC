@@ -36,89 +36,144 @@ class ProfileAnalyzer:
             sig0x   = float(data[23][-1])
             mu0y    = float(data[26][-1])
             sig0y   = float(data[28][-1])
+            linkeKante = float(data[24][-1])
+            rechteKante = float(data[25][-1])
 
-        return [monitor, time, mu0x, sig0x, mu0y, sig0y]
+        return [monitor, time, mu0x, sig0x, mu0y, sig0y,
+                linkeKante, rechteKante]
 
     def gaussCurve(self, x, a, mu, sig, l):
         G = a*np.exp(-(x-mu)**2/(2*sig**2)) + l
         return G
 
-    def doppelGauss(self, x, a1, a2, mu1, mu2, sig1, sig2, l):
+    def doppelGauss(self, x, mu1, mu2, sig1, sig2, a1, a2, l):
         doppelG = a1*np.exp(-(x-mu1)**2/(2*sig1**2)) + \
                   a2*np.exp(-(x-mu2)**2/(2*sig2**2)) + l
         return doppelG
 
     def plotCurve(self, gitterFile):
+
         info = self.getMessInfo(gitterFile)
         data = np.loadtxt(gitterFile, delimiter=';',skiprows=34,
                           encoding='latin-1', unpack=True)
-        # Position is the same for x and y
-        posx = data[1]
-        x    = data[3]
-        y    = data[4]
-
-        mux0, sigx0 = info[2], info[3]
-        muy0, sigy0 = info[4], info[5]
-        p0x = [max(x), mux0, sigx0, min(x)]
-        p0y = [max(y), muy0, sigy0, min(y)]
-
-        Gx, dGx = curve_fit(self.gaussCurve, posx, x, p0=p0x)
-        Gy, dGy = curve_fit(self.gaussCurve, posx, y, p0=p0y)
-        xfit = np.linspace(posx[0], posx[-1], 200)
-        mux  = round(Gx[1],2)
-        dmux = round(np.sqrt(dGx[1][1]),2)
-        #dmux = 0
-        muy  = round(Gy[1],2)
-        dmuy = round(np.sqrt(dGy[1][1]),2)
 
         print('----------------------------')
         print('Monitor: {}'.format(info[0]))
         print('Time:    {}'.format(info[1]))
         print('----------------------------')
-        print('mu_x: {}'.format(info[2]))
-        print('Fit:  {} +- {}'.format(mux, dmux))
-        print('mu_y: {}'.format(info[4]))
-        print('Fit:  {} +- {}'.format(muy, dmuy))
-        print('---------------------------')
         print(gitterFile)
         print('---------------------------')
-
+        #print('mu_x: {}'.format(info[2]))
+        #print('mu_y: {}'.format(info[4]))
+        # Position is the same for x and y
+        posx = data[1]
+        x    = data[3]
+        y    = data[4]
+        
         plt.figure(1)
         plt.plot(posx, x,
                  marker='.', markersize=8,
                  label='Wire readout', linestyle='')
-        plt.plot(xfit, self.gaussCurve(xfit, *Gx),
-                 linewidth=1.5,
-                 linestyle='--',
-                 label='Gauss fit')
         plt.xlabel('x Position [mm]')
         plt.ylabel('Intensity [a.U.]')
-        for i in posx: plt.axvline(i,color='gray',linewidth=0.6)
-        plt.legend(loc=0)
-        plt.tight_layout()
 
         plt.figure(2)
         plt.plot(posx, y,
                  marker='.', markersize=8,
                  label='Wire readout', linestyle='')
+        plt.xlabel('y Position [mm]')
+        plt.ylabel('Intensity [a.U.]')
+        
+        mux0, sigx0 = info[2], info[3]
+        muy0, sigy0 = info[4], info[5]
+        if(abs(sigx0) > 10.): sigx0 *= 0.1
+        if(abs(sigy0) > 10.): sigy0 *= 0.1
+        p0x = [max(x), mux0, sigx0, min(x)]
+        p0y = [max(y), muy0, sigy0, min(y)]
+
+        monitor = info[0]
+        if (monitor == 'H3DG3G' or \
+            monitor == 'B3DG2G' or \
+            monitor == 'B3DG3G'):
+            # Double Gauss fit
+            p0 = [info[-2], info[-1], 2.0, 2.0, max(x), max(x), 0.]
+            print(p0)
+            Gx, dGx = curve_fit(self.doppelGauss, posx, x, p0=p0,
+                                maxfev=5000)
+            mux, dmux = self.getDoubleGauss(Gx, dGx)
+            mux  = round(mux, 3)
+            dmux = round(dmux, 3)
+        else:
+            Gx, dGx = curve_fit(self.gaussCurve, posx, x, p0=p0x,maxfev=5000)
+            mux  = round(Gx[1],2)
+            dmux = round(np.sqrt(dGx[1][1]),2)
+            #dmux = 0
+        Gy, dGy = curve_fit(self.gaussCurve, posx, y, p0=p0y,maxfev=5000)
+            
+        xfit = np.linspace(posx[0], posx[-1], 200)
+        
+        muy  = round(Gy[1],2)
+        dmuy = round(np.sqrt(dGy[1][1]),2)
+        
+        print('mu_x: {}'.format(info[2]))
+        print('Fit:  {} +- {}'.format(mux, dmux))
+        print('mu_y: {}'.format(info[4]))
+        print('Fit:  {} +- {}'.format(muy, dmuy))
+        print('---------------------------')
+        
+        plt.figure(1)
+        if (monitor == 'H3DG3G' or \
+            monitor == 'B3DG2G' or \
+            monitor == 'B3DG3G'):
+            plt.plot(xfit, self.doppelGauss(xfit, *Gx),
+                     linewidth=1.5,
+                     linestyle='--',
+                     label='Gauss fit')
+        else:    
+            plt.plot(xfit, self.gaussCurve(xfit, *Gx),
+                     linewidth=1.5,
+                     linestyle='--',
+                     label='Gauss fit')
+        
+        for i in posx: plt.axvline(i,color='gray',linewidth=0.6)
+        plt.legend(loc=0)
+        plt.tight_layout()
+
+        
+        plt.figure(2)
         plt.plot(xfit, self.gaussCurve(xfit, *Gy),
                  linewidth=1.5,
                  linestyle='--',
                  label='Gauss fit')
-        plt.xlabel('y Position [mm]')
-        plt.ylabel('Intensity [a.U.]')
+        
         for i in posx: plt.axvline(i,color='gray',linewidth=0.6)
         plt.tight_layout()
         plt.legend(loc=0)
         
         plt.show()
 
+    def getDoubleGauss(self, Gx, dGx):
+        mu1  = Gx[0]
+        sig1 = np.sqrt(dGx[0][0]) 
+        mu2  = Gx[1]
+        sig2 = np.sqrt(dGx[3][3])
+        A1  = Gx[4]
+        dA1 = np.sqrt(dGx[4][4])
+        A2  = Gx[5]
+        dA2 = np.sqrt(dGx[5][5])
+        w12 = A1+A2
+        muW =  (A1*mu1 + A2*mu2) / (w12)
+        dmuW = (((mu1-muW)**2)*(dA1**2) + ((mu2-muW)**2)*(dA2**2) + \
+                (A1*sig1)**2 + (A2*sig2)**2)/ (w12**2)
+        dmuW = np.sqrt(dmuW)
+        return muW, dmuW
+        
     def timeToMin(self, time):
         t = time.split(':')
         return float(t[0])*60+float(t[1])+float(t[2])/60
 
     def fitProfiles(self, monitor, showProfiles=False,
-                          skipShots=1, plot=True):
+                    skipShots=1, plot=True):
         """
         Fits the monitor profiles with a Gauss peak
         """
@@ -132,6 +187,12 @@ class ProfileAnalyzer:
         print('- Monitor: {}'.format(monitor))
         print('- Number of Files: {}'.format(len(gitterFiles)))
         print('------------------------------')
+
+        for f in gitterFiles:
+            info = self.getMessInfo(f)
+            sigx0 = info[3]
+            if sigx0 == -9999.0:
+                print(f)
             
         for f in gitterFiles:
             info = self.getMessInfo(f)
@@ -139,29 +200,55 @@ class ProfileAnalyzer:
             data = np.loadtxt(f, delimiter=';', skiprows=34,
                               encoding='latin-1', unpack=True)
             monitor, time = info[0], info[1]
-            time = self.timeToMin(time)
-
+            
             mux0, sigx0 = info[2], info[3]
             muy0, sigy0 = info[4], info[5]
+
+            time = self.timeToMin(time)
+            if(time < self.timeToMin('14:21:00') and
+               time > self.timeToMin('14:16:45') and
+               monitor == 'G3DG3G'):
+                #print(time)
+                muy0 = -18.
+
             posx = data[1]
             x    = data[3]
             y    = data[4]
+            if(sigx0 > 10.): sigx0 *= 0.1
+            if(sigy0 > 10.): sigy0 *= 0.1
             p0x = [max(x), mux0, sigx0, min(x)]
             p0y = [max(y), muy0, sigy0, min(y)]
             try:
-                Gx, dGx = curve_fit(self.gaussCurve, posx, x, p0=p0x)
+                if (monitor == 'H3DG3G'):
+                    p0d = [info[-2], info[-1], 2.0, 2.0, max(x),0.6*max(x), 0.]
+                    #print(p0d)
+                    Gx, dGx = curve_fit(self.doppelGauss, posx, x, p0=p0d,
+                                        maxfev=5000)
+                    mux, dmux = self.getDoubleGauss(Gx, dGx)
+                if (monitor == 'B3DG2G' or \
+                    monitor == 'B3DG3G'):
+                    # Double Gauss fit
+                    p0d = [info[-2], info[-1], 2.0, 2.0, 0.6*max(x), max(x), 0.]
+                    #print(p0d)
+                    Gx, dGx = curve_fit(self.doppelGauss, posx, x, p0=p0d,
+                                        maxfev=5000)
+                    mux, dmux = self.getDoubleGauss(Gx, dGx)
+                else:
+                    Gx, dGx = curve_fit(self.gaussCurve, posx, x, p0=p0x,
+                                        maxfev=5000)
+                mux  = Gx[1]
+                dmux = np.sqrt(dGx[1][1])
+
                 Gy, dGy = curve_fit(self.gaussCurve, posx, y, p0=p0y)
                 xfit = np.linspace(posx[0], posx[-1], 200)
-                mux  = round(Gx[1],2)
-                dmux = round(np.sqrt(dGx[1][1]),2)
-                muy  = round(Gy[1],2)
-                dmuy = round(np.sqrt(dGy[1][1]),2)
+                muy  = Gy[1]
+                dmuy = np.sqrt(dGy[1][1])
                 if (dmux > 30. or dmuy > 30.
                     or abs(mux) > 30.):
                     muy = 0.
                     mux = 0.
                     dmuy = 1e-6
-                    dmux = 1e-6
+                    dmux = -1
             except OptimizeWarning:
                 print('Catching the exception')
                 print(f)
@@ -169,7 +256,8 @@ class ProfileAnalyzer:
             except RuntimeWarning:
                 print(f)
 
-            positionFits.append([time, mux, dmux, muy, dmuy, mux0, muy0])
+            if(mux != 0. and dmux != -1):
+                positionFits.append([time, mux, dmux, muy, dmuy, mux0, muy0])
 
         if (len(gitterFiles) != 0):
             messung = self.getMeasurements(positionFits, skipShots)
@@ -256,7 +344,26 @@ class ProfileAnalyzer:
         dMessWertey = messWerte[3]
 
         tMask, kickers = self.getTimeMask()
-        
+        #####################################
+        #     Static fit for H1DG1G         #
+        # Result:                           #
+        #  345 SHOTS
+        #  sigx = (0.410 +- 0.023) mm       #
+        #  sigy = (0.059 +- 0.002) mm       #
+        #####################################
+        """
+        plt.figure(3)
+        h = plt.hist(muy[:345], bins=60)
+        x = (h[1][:-1] + h[1][1:])/2
+        #plt.plot(x, h[0])
+        p0 = [40., -0.1, 0.05, 0.]
+        Gx, dGx = curve_fit(self.gaussCurve, x, h[0], p0=p0 )
+        print('A:   {} +- {}'.format(Gx[0], np.sqrt(dGx[0][0])))
+        print('mu:  {} +- {}'.format(Gx[1], np.sqrt(dGx[1][1])))
+        print('sig: {} +- {}'.format(Gx[2], np.sqrt(dGx[2][2])))
+        print('l:   {} +- {}'.format(Gx[3], np.sqrt(dGx[3][3])))
+        plt.plot(x, self.gaussCurve(x,*Gx))
+        """
         plt.figure(1)
         plt.errorbar(t, mux, yerr=dmux, marker='.', linestyle='')
         plt.plot(t, mux0, marker='.', linestyle='')
