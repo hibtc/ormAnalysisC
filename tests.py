@@ -195,20 +195,21 @@ def gantry(simpleFit=False):
 
     for i in range(len(messFiles)): messFiles[i] = prePath + messFiles[i]  
 
-    profilePath1 = '/home/cristopher/HIT/ormData/ormMessdata/17-11-2019/ORM_profile/'
+    profilePath1 = '/home/cristopher/HIT/ormData/ormMessdata/04-12-2019/GitterProfile/'
     # Last session
     prePath1 = '../ormData/ormMessdata/17-11-2019/ormMessungen/'
+    prePath2 = '../ormData/ormMessdata/04-12-2019/'
     messFiles = [
         prePath1 + '2019-11-17_13-38-51_hht3_h1dg1g.orm_measurement.yml',
-        prePath1 + '2019-11-17_14-49-50_hht3_h1dg2g.orm_measurement.yml',
-        prePath  + '2019-06-10_08-48-04_hht3_h2dg2g.orm_measurement.yml',
-        prePath  + '2019-06-10_09-00-22_hht3_h3dg3g.orm_measurement.yml',
-        prePath  + '2019-06-10_09-20-44_hht3_b3dg2g.orm_measurement.yml',
-        prePath  + '2019-06-10_09-44-26_hht3_b3dg3g.orm_measurement.yml',
-        prePath1 + '2019-11-17_13-58-20_hht3_g3dg3g.orm_measurement.yml',
-        prePath1 + '2019-11-17_14-30-29_hht3_g3dg5g.orm_measurement.yml',
-        prePath  + '2019-06-10_11-13-49_hht3_t3dg2g.orm_measurement.yml',
-        prePath  + '2019-06-10_11-33-56_hht3_t3df1.orm_measurement.yml',
+        #prePath1 + '2019-11-17_14-49-50_hht3_h1dg2g.orm_measurement.yml',
+        #prePath2 + '2019-12-04_02-58-07_hht3_h2dg2g.orm_measurement.yml',
+        #prePath2 + '2019-12-04_02-22-29_hht3_h3dg3g.orm_measurement.yml',
+        #prePath2 + '2019-12-04_01-46-17_hht3_b3dg2g.orm_measurement.yml',
+        #prePath2 + '2019-12-04_00-51-48_hht3_b3dg3g.orm_measurement.yml',
+        #prePath1 + '2019-11-17_13-58-20_hht3_g3dg3g.orm_measurement.yml',
+        #prePath2 + '2019-12-04_03-17-12_hht3_g3dg5g.orm_measurement.yml',
+        #prePath  + '2019-06-10_11-13-49_hht3_t3dg2g.orm_measurement.yml',
+        #prePath  + '2019-06-10_11-33-56_hht3_t3df1.orm_measurement.yml',
     ]
 
     pList =  [
@@ -233,12 +234,12 @@ def gantry(simpleFit=False):
         'kL_EFG_G3QD41',
         'kL_EFG_G3QD42',
     ]
-    opt = ORMOptimizer(messFiles, modelPath, profilePath,
+    opt = ORMOptimizer(messFiles, modelPath, profilePath1,
                        readOrm=False, plotEachM=False,
                        savePath='../ormBericht/NotSimpleResults/gantry')
     singMask = 1e6
-    err      = 10
-    maxIts   = 50
+    err      = 100
+    maxIts   = 150
     if simpleFit:
         opt.fitErrorsSimple(plotMeas=1)
     else:
@@ -415,5 +416,5 @@ def testGitterReader():
 #fit_hht1(simpleFit=0)
 #fit_hht2(simpleFit=0)
 #preGantry(simpleFit=0)
-gantry(simpleFit=0)
+gantry(simpleFit=1)
 #testFit()

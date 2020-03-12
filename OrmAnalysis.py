@@ -98,7 +98,7 @@ class OrbitResponse:
     # Set showProfiles to True to show each measurement                 #
     #####################################################################
 
-    def ormMeasured(self, plotShots=False):
+    def ormMeasured(self, plotShots=True):
         """
         Computes the measured orbit responses at an specifical
         monitor, returns the orbit response entries and their errors
@@ -110,8 +110,7 @@ class OrbitResponse:
         self.madx.globals.update(self.data['model'])
         if (self.monitor == 'h1dg1g' or
             self.monitor == 'h1dg2g' or
-            self.monitor == 'g3dg3g' or
-            self.monitor == 'g3dg5g' ):
+            self.monitor == 'g3dg3g'):
             profilePath = '/home/cristopher/HIT/ormData/ormMessdata/17-11-2019/ORM_profile/'
             profAnalizer = ProfileAnalyzer(self.data, profilePath)
         else:
@@ -120,6 +119,7 @@ class OrbitResponse:
         profAnalizer.fitProfiles(self.monitor.upper(), showProfiles=False,
                                  skipShots=1, plot=plotShots)
         pOrmx, pOrmy = profAnalizer.messDatax, profAnalizer.messDatay
+
         gridProfiles = (len(pOrmx) != 0)
         print(' GridProfiles: ', gridProfiles)
         
@@ -136,6 +136,7 @@ class OrbitResponse:
             # (That's why we just take the first two)
             beamMess.append(np.array(mean[:2]))
             beamMessErr.append(np.array(stdDev[:2]))
+
         orbitResponse    = []
         orbitResponseErr = []
         # Note that len(kicks) + 1 == len(beamMess) must hold
