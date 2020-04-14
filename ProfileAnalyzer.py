@@ -69,7 +69,7 @@ class ProfileAnalyzer:
         posx = data[1]
         x    = data[3]
         y    = data[4]
-        
+
         plt.figure(1)
         plt.plot(posx, x,
                  marker='.', markersize=8,
@@ -83,14 +83,13 @@ class ProfileAnalyzer:
                  label='Wire readout', linestyle='')
         plt.xlabel('y Position [mm]')
         plt.ylabel('Intensity [a.U.]')
-        
+
         mux0, sigx0 = info[2], info[3]
         muy0, sigy0 = info[4], info[5]
         if(abs(sigx0) > 10.): sigx0 *= 0.1
         if(abs(sigy0) > 10.): sigy0 *= 0.1
         p0x = [max(x), mux0, sigx0, min(x)]
         p0y = [max(y), muy0, sigy0, min(y)]
-
         monitor = info[0]
         if (monitor == 'H3DG3G' or \
             monitor == 'B3DG2G' or \
@@ -109,18 +108,18 @@ class ProfileAnalyzer:
             dmux = round(np.sqrt(dGx[1][1]),2)
             #dmux = 0
         Gy, dGy = curve_fit(self.gaussCurve, posx, y, p0=p0y,maxfev=5000)
-            
+
         xfit = np.linspace(posx[0], posx[-1], 200)
-        
+
         muy  = round(Gy[1],2)
         dmuy = round(np.sqrt(dGy[1][1]),2)
-        
+
         print('mu_x: {}'.format(info[2]))
         print('Fit:  {} +- {}'.format(mux, dmux))
         print('mu_y: {}'.format(info[4]))
         print('Fit:  {} +- {}'.format(muy, dmuy))
         print('---------------------------')
-        
+
         plt.figure(1)
         if (monitor == 'H3DG3G' or \
             monitor == 'B3DG2G' or \
@@ -129,32 +128,32 @@ class ProfileAnalyzer:
                      linewidth=1.5,
                      linestyle='--',
                      label='Gauss fit')
-        else:    
+        else:
             plt.plot(xfit, self.gaussCurve(xfit, *Gx),
                      linewidth=1.5,
                      linestyle='--',
                      label='Gauss fit')
-        
+
         for i in posx: plt.axvline(i,color='gray',linewidth=0.6)
         plt.legend(loc=0)
         plt.tight_layout()
 
-        
+
         plt.figure(2)
         plt.plot(xfit, self.gaussCurve(xfit, *Gy),
                  linewidth=1.5,
                  linestyle='--',
                  label='Gauss fit')
-        
+
         for i in posx: plt.axvline(i,color='gray',linewidth=0.6)
         plt.tight_layout()
         plt.legend(loc=0)
-        
+
         plt.show()
 
     def getDoubleGauss(self, Gx, dGx):
         mu1  = Gx[0]
-        sig1 = np.sqrt(dGx[0][0]) 
+        sig1 = np.sqrt(dGx[0][0])
         mu2  = Gx[1]
         sig2 = np.sqrt(dGx[3][3])
         A1  = Gx[4]
@@ -167,7 +166,7 @@ class ProfileAnalyzer:
                 (A1*sig1)**2 + (A2*sig2)**2)/ (w12**2)
         dmuW = np.sqrt(dmuW)
         return muW, dmuW
-        
+
     def timeToMin(self, time):
         t = time.split(':')
         return float(t[0])*60+float(t[1])+float(t[2])/60
@@ -177,12 +176,13 @@ class ProfileAnalyzer:
         """
         Fits the monitor profiles with a Gauss peak
         """
-        # Uncomment to plot beam profiles 
+        # Uncomment to plot beam profiles
         # showProfiles=True
         gitterFiles = glob.glob((self.monitorPath+monitor+'/*'))
+        gitterFiles.sort()
         positionFits = []
         envelopeFits = []
-        
+
         print('------------------------------')
         print('  Fitting monitor profiles ')
         print('- Monitor: {}'.format(monitor))
@@ -194,14 +194,16 @@ class ProfileAnalyzer:
             sigx0 = info[3]
             if sigx0 == -9999.0:
                 print(f)
-            
+            #if monitor == 'G3DG3G':
+            #    self.handFitG3DG3G(f)
+
         for f in gitterFiles:
             info = self.getMessInfo(f)
             if showProfiles: self.plotCurve(f)
             data = np.loadtxt(f, delimiter=';', skiprows=34,
                               encoding='latin-1', unpack=True)
             monitor, time = info[0], info[1]
-            
+
             mux0, sigx0 = info[2], info[3]
             muy0, sigy0 = info[4], info[5]
 
@@ -209,20 +211,38 @@ class ProfileAnalyzer:
             envy0 = sigy0
 
             time = self.timeToMin(time)
+
             if(time < self.timeToMin('14:21:00') and
                time > self.timeToMin('14:16:45') and
                monitor == 'G3DG3G'):
-                #print(time)
-                muy0 = -18.
+               #print(time)
+               muy0 = -21.
 
             posx = data[1]
             x    = data[3]
             y    = data[4]
-            
+
             if(sigx0 > 10.): sigx0 *= 0.1
             if(sigy0 > 10.): sigy0 *= 0.1
             p0x = [max(x), mux0, sigx0, min(x)]
             p0y = [max(y), muy0, sigy0, min(y)]
+
+            #if (monitor == 'G3DG3G'):
+            #    if time < self.timeToMin('20:27:46'):
+            #        p0x = [max(x),  0.,  1., min(x)]
+            #        p0y = [max(y), -7.6, 3., min(y)]
+            #    elif (time < self.timeToMin('20:42:18') and
+            #          time >= self.timeToMin('20:37:35')):
+            #        p0x = [max(x), -1.,  1.0, min(x)]
+            #        p0y = [max(y), -23., 3.0, min(y)]
+            #    elif (time < self.timeToMin('20:45:04') and
+            #          time >= self.timeToMin('20:44:15')):
+            #        p0x = [max(x), 0.,  1., min(x)]
+            #        p0y = [max(y), 0.,  3., min(y)]
+            #     else:
+            #         p0x = [max(x), mux0,  sigx0, min(x)]
+            #         p0y = [max(y), muy0,  sigy0, min(y)]
+
             try:
                 if (monitor == 'H3DG3G'):
                     p0d = [info[-2], info[-1], 2.0, 2.0, max(x),0.6*max(x), 0.]
@@ -232,7 +252,7 @@ class ProfileAnalyzer:
                     mux, dmux = self.getDoubleGauss(Gx, dGx)
                     envx = envx0
                     denvx = 0.
-                    
+
                 if (monitor == 'B3DG2G' or \
                     monitor == 'B3DG3G'):
                     # Double Gauss fit
@@ -243,7 +263,7 @@ class ProfileAnalyzer:
                     mux, dmux = self.getDoubleGauss(Gx, dGx)
                     envx = envx0
                     denvx = 0.
-                    
+
                 else:
                     Gx, dGx = curve_fit(self.gaussCurve, posx, x, p0=p0x,
                                         maxfev=5000)
@@ -251,14 +271,14 @@ class ProfileAnalyzer:
                     dmux = np.sqrt(dGx[1][1])
                     envx = Gx[2]
                     denvx = np.sqrt(dGx[2][2])
-                    
+
                 Gy, dGy = curve_fit(self.gaussCurve, posx, y, p0=p0y)
                 xfit = np.linspace(posx[0], posx[-1], 200)
                 muy  = Gy[1]
                 dmuy = np.sqrt(dGy[1][1])
                 envy = Gy[2]
                 denvy = np.sqrt(dGy[1][1])
-                
+
                 if (dmux > 30. or dmuy > 30.
                     or abs(mux) > 30.):
                     muy = 0.
@@ -275,13 +295,14 @@ class ProfileAnalyzer:
             if(mux != 0. and dmux != -1):
                 positionFits.append([time, mux, dmux, muy, dmuy, mux0, muy0])
                 envelopeFits.append([time, envx, denvx, envy, denvy, envx0, envy0])
-                
+
         if (len(gitterFiles) != 0):
             messung = self.getMeasurements(positionFits, skipShots)
             self.messDatax, self.messDatay = self.formatMeasurements(messung)
             envelopes = self.getMeasurements(envelopeFits, skipShots)
+            self._printProfileSummary(self.messDatax, self.messDatay, envelopeFits)
             if(plot):
-                #self.plotFits(positionFits, monitor, messung)
+                self.plotFits(positionFits, monitor, messung)
                 self.plotFits(envelopeFits, monitor, envelopes, titel='Beam envelope')
         else:
             self.messDatax, self.messDatay = {},{}
@@ -328,21 +349,23 @@ class ProfileAnalyzer:
         return [messWertex, dMessWertex, messWertey, dMessWertey]
 
     def _computeMean(self, data, error, timeMask):
+        if len(data)==0:
+            return
         mean = np.mean(data)
         error_syst = np.sqrt(sum(error[timeMask]**2))/len(error[timeMask])
         error_stat = np.std(data)
         return mean, error_syst, error_stat
-        
+
     def _filterPeaks(self, data):
         filteredData = data
         if(len(data) > 3):
             # Taking out the first measurement
-            # It is always buggy 
+            # It is always buggy
             filteredData = np.sort(data[1:])
             # Taking out the abnormal values
             filteredData = filteredData[1:-1]
-        return filteredData            
-        
+        return filteredData
+
     def plotFits(self, positionFits, monitor, messWerte,
                  titel=''):
         """
@@ -375,56 +398,79 @@ class ProfileAnalyzer:
         #####################################
         # sigx, sigy tell us the reproducibility of
         # initial conditions i.e. extraction offset
+
+        # TODO: Move this to a dedicated function
         """
+        avex  = np.average(mux)
+        davex_stat = np.std(mux)
+        davex_fit  = np.sqrt(sum(dmux**2))/len(dmux)
+        avex = round(avex, 3)
+        davex_stat = round(davex_stat, 4)
+        davex_fit = round(davex_fit,  4)
+
+        avey  = np.mean(muy)
+        davey_stat = np.std(muy)
+        davey_fit  = np.sqrt(sum(dmuy**2))/len(dmuy)
+        avey = round(avey, 4)
+        davey_stat = round(davey_stat, 4)
+        davey_fit = round(davey_fit,  4)
+        print('---------------')
+        print('mux: {} +- {} + {}'.format(avex, davex_stat, davex_fit))
+        print('muy: {} +- {}+ {}'.format(avey, davey_stat, davey_fit))
+        print('---------------')
+        input('Waiting...')
+
         plt.figure(3)
         #h = plt.hist(mux[:345], bins=60)
-        h = plt.hist(muy, bins=20)
+        h = plt.hist(mux, bins=6)
         x = (h[1][:-1] + h[1][1:])/2
         plt.plot(x, h[0])
-        #plt.show()
-        p0 = [40., 2.7, 0.1, 0.]
+
+        p0 = [10., 2.1, 0.1, 0.]
         Gx, dGx = curve_fit(self.gaussCurve, x, h[0], p0=p0 )
         print('A:   {} +- {}'.format(Gx[0], np.sqrt(dGx[0][0])))
         print('mu:  {} +- {}'.format(Gx[1], np.sqrt(dGx[1][1])))
         print('sig: {} +- {}'.format(Gx[2], np.sqrt(dGx[2][2])))
         print('l:   {} +- {}'.format(Gx[3], np.sqrt(dGx[3][3])))
-        plt.plot(x, self.gaussCurve(x,*Gx))
+        xPlot = np.linspace(x[0],x[-1], 200)
+        plt.plot(xPlot, self.gaussCurve(xPlot,*Gx))
+        plt.show()
         """
         plt.figure(1)
         plt.errorbar(t, mux, yerr=dmux, marker='.', linestyle='')
-        plt.plot(t, mux0, marker='.', linestyle='')
-        plt.title('x-Position')
+        #plt.plot(t, mux0, marker='.', linestyle='')
+        #plt.title('x-Position')
         if(len(titel)): plt.title(titel)
-        plt.xlabel('Time [min]')
-        plt.ylabel('x-Position [mm]')
+        plt.xlabel('Time [min]', fontsize=10)
+        plt.ylabel('x [mm]', fontsize=10)
         for i in range(len(messWertex)):
             label1 = '{} +- ({} + {})'.format(round(messWertex[i],3),
                                                   round(dMessWertex[i][0],3),
                                                   round(dMessWertex[i][1],3))
-            plt.plot(tMask[i], [messWertex[i],messWertex[i]],
+            plt.plot(tMask[i], [messWertex[i],messWertex[i]],linewidth=3,
                      label=label1)
         for ti in tMask:
             plt.axvline(ti[0], linestyle='--')
             plt.axvline(ti[1], linestyle='--')
-        plt.legend(loc=0)
+        #plt.legend(loc=0)
 
         plt.figure(2)
         plt.errorbar(t, muy, yerr=dmuy, marker='.',linestyle='')
-        plt.plot(t, muy0, marker='.', linestyle='')
-        plt.title('y-Position at {}'.format(monitor))
+        #plt.plot(t, muy0, marker='.', linestyle='')
+        #plt.title('y at {}'.format(monitor))
         if(len(titel)): plt.title(titel)
-        plt.xlabel('Time [min]')
-        plt.ylabel('y-Position [mm]')
+        plt.xlabel('Time [min]', fontsize=12)
+        plt.ylabel('y [mm]',fontsize=12)
         for i in range(len(messWertey)):
             label1 = '{} +- ({} + {})'.format(round(messWertey[i],3),
                                               round(dMessWertey[i][0],3),
                                               round(dMessWertey[i][1],3))
-            plt.plot(tMask[i], [messWertey[i],messWertey[i]],
+            plt.plot(tMask[i], [messWertey[i],messWertey[i]],linewidth=3,
                      label=label1)
         for ti in tMask:
             plt.axvline(ti[0], linestyle='--')
             plt.axvline(ti[1], linestyle='--')
-        plt.legend(loc=0)
+        #plt.legend(loc=0)
         plt.show()
 
     def formatMeasurements(self, messWerte):
@@ -441,7 +487,7 @@ class ProfileAnalyzer:
         dMessWertex = np.array(messWerte[1])*1e-3
         messWertey  = np.array(messWerte[2])*1e-3
         dMessWertey = np.array(messWerte[3])*1e-3
-        
+
         tMask, kickers = self.getTimeMask()
         for i in range(len(messWertex)):
             kick = list(kickers[i].keys())
@@ -471,4 +517,147 @@ class ProfileAnalyzer:
             t1 = change[-1].split(' ')
             timeMasks.append([self.timeToMin(t0[1]),
                               self.timeToMin(t1[1])])
+
         return timeMasks, kickers
+
+    def _printProfileSummary(self, posFitsx, posFitsy, envFits):
+
+        print('-------------------------------')
+        print('       Monitor summary')
+        print('-------------------------------')
+        print()
+        print('--------  Offset [mm] ---------')
+        print()
+        x0 = posFitsx['']
+        y0 = posFitsy['']
+        print(' x -> {} +- {}'.format(round(x0[0]*1e3,3), round(x0[1]*1e3,3)))
+        print(' y -> {} +- {}'.format(round(y0[0]*1e3,3), round(y0[1]*1e3,3)))
+        print()
+        envFits    = np.transpose(envFits)
+        envx       = np.average(envFits[1])
+        denvx_stat = np.std(envFits[1])
+        denvx_fit  = np.sqrt(sum(envFits[2]**2))/len(envFits[2])
+        envx = round(envx, 3)
+        denvx_stat = round(denvx_stat, 4)
+        denvx_fit = round(denvx_fit,  4)
+        denvx = denvx_stat + denvx_fit
+        denvx = round(denvx, 4)
+
+        envy       = np.average(envFits[3])
+        denvy_stat = np.std(envFits[3])
+        denvy_fit  = np.sqrt(sum(envFits[4]**2))/len(envFits[4])
+        envy = round(envy, 3)
+        denvy_stat = round(denvy_stat, 4)
+        denvy_fit = round(denvy_fit,  4)
+        denvy = denvy_stat + denvy_fit
+        denvy = round(denvy, 4)
+
+        print('-------  Enveloppe [mm] ------')
+        print(' x -> {} +- {}'.format(envx, denvx))
+        print(' y -> {} +- {}'.format(envy, denvy))
+        print('------------------------------')
+        print()
+
+    def handFitG3DG3G(self, gitterFile):
+        """
+        This function is to fit by hand troublesome Gridprofiles.
+        Mostly in G3DG3G
+        """
+        info = self.getMessInfo(gitterFile)
+        data = np.loadtxt(gitterFile, delimiter=';',skiprows=34,
+                          encoding='latin-1', unpack=True)
+        time = info[1]
+        time = self.timeToMin(time)
+
+        print('----------------------------')
+        print('Monitor: {}'.format(info[0]))
+        print('Time:    {}'.format(info[1]))
+        print('----------------------------')
+        print(gitterFile)
+        print('---------------------------')
+        #print('mu_x: {}'.format(info[2]))
+        #print('mu_y: {}'.format(info[4]))
+        # Position is the same for x and y
+        posx = data[1]
+        x    = data[3]
+        y    = data[4]
+
+        plt.figure(1)
+        plt.plot(posx, x,
+                 marker='.', markersize=8,
+                 label='Wire readout', linestyle='')
+        plt.xlabel('x Position [mm]')
+        plt.ylabel('Intensity [a.U.]')
+
+        plt.figure(2)
+        plt.plot(posx, y,
+                 marker='.', markersize=8,
+                 label='Wire readout', linestyle='')
+        plt.xlabel('y Position [mm]')
+        plt.ylabel('Intensity [a.U.]')
+
+        mux0, sigx0 = info[2], info[3]
+        print(mux0, sigx0)
+        muy0, sigy0 = info[4], info[5]
+        print(muy0, sigy0)
+        if(abs(sigx0) > 10.): sigx0 *= 0.1
+        if(abs(sigy0) > 10.): sigy0 *= 0.1
+
+        if(time < self.timeToMin('14:21:00') and
+           time > self.timeToMin('14:16:45')):
+            print(time)
+            muy0 = -21.
+
+        p0x = [max(x), mux0, sigx0, min(x)]
+        p0y = [max(y), muy0, sigy0, min(y)]
+        #plt.show()
+
+        #print('x:')
+        #print(p0x)
+        #print('y:')
+        #print(p0y)
+        monitor = info[0]
+
+        Gx, dGx = curve_fit(self.gaussCurve, posx, x, p0=p0x,maxfev=5000)
+        mux  = round(Gx[1],2)
+        dmux = round(np.sqrt(dGx[1][1]),2)
+        Gy, dGy = curve_fit(self.gaussCurve, posx, y, p0=p0y,maxfev=5000)
+
+        xfit = np.linspace(posx[0], posx[-1], 200)
+
+        muy  = round(Gy[1],2)
+        dmuy = round(np.sqrt(dGy[1][1]),2)
+
+        print('mu_x: {}'.format(info[2]))
+        print('Fit:  {} +- {}'.format(mux, dmux))
+        print('mu_y: {}'.format(info[4]))
+        print('Fit:  {} +- {}'.format(muy, dmuy))
+        print('---------------------------')
+
+        plt.figure(1)
+
+        plt.plot(xfit, self.gaussCurve(xfit, *Gx),
+                 linewidth=1.5,
+                 linestyle='--',
+                 label='Gauss fit')
+
+        for i in posx: plt.axvline(i,color='gray',linewidth=0.6)
+        plt.legend(loc=0)
+        plt.tight_layout()
+        if time < self.timeToMin('14:16:45'):
+            plt.clf()
+
+        plt.figure(2)
+        plt.plot(xfit, self.gaussCurve(xfit, *Gy),
+                 linewidth=1.5,
+                 linestyle='--',
+                 label='Gauss fit')
+
+        for i in posx: plt.axvline(i,color='gray',linewidth=0.6)
+        plt.tight_layout()
+        plt.legend(loc=0)
+
+        if time > self.timeToMin('14:16:45'):
+            plt.show()
+        else:
+            plt.clf()

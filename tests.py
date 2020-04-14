@@ -163,8 +163,8 @@ def preGantry(simpleFit=False):
     ]
     opt = ORMOptimizer(messFiles4, modelPath, profilePath,
                        readOrm=False, plotEachM=False,
-                       plotShots=False)
-                       #savePath='../ormBericht/NotSimpleResults/hht3')
+                       plotShots=False,
+                       savePath='../ormBericht/NotSimpleResults/hht3')
     singMask = 1e5
     err      = 1e-1
     maxIts   = 200
@@ -174,80 +174,8 @@ def preGantry(simpleFit=False):
         opt.fitErrors(pList, singularMask=singMask,
                       error=err,  maxIt=maxIts)
 
-def gantry(simpleFit=False):
-    
-    from OrmAnalysis import ORMOptimizer
-    modelPath = 'hht3/run.madx'
-    profilePath = '/home/cristopher/HIT/ormData/ormMessdata/10-06-2019/GitterProfile/ProfilePT3/'
-    prePath = '../ormData/ormMessdata/10-06-2019/'
-    messFiles = [
-        '2019-06-10_08-31-35_hht3_h1dg1g.orm_measurement.yml',
-        '2019-06-10_08-36-56_hht3_h1dg2g.orm_measurement.yml',
-        '2019-06-10_08-48-04_hht3_h2dg2g.orm_measurement.yml',
-        '2019-06-10_09-00-22_hht3_h3dg3g.orm_measurement.yml',
-        '2019-06-10_09-20-44_hht3_b3dg2g.orm_measurement.yml',
-        '2019-06-10_09-44-26_hht3_b3dg3g.orm_measurement.yml',
-        '2019-06-10_10-10-58_hht3_g3dg3g.orm_measurement.yml',
-        '2019-06-10_10-41-00_hht3_g3dg5g.orm_measurement.yml',
-        '2019-06-10_11-13-49_hht3_t3dg2g.orm_measurement.yml',
-        '2019-06-10_11-33-56_hht3_t3df1.orm_measurement.yml',
-        ]
-
-    for i in range(len(messFiles)): messFiles[i] = prePath + messFiles[i]  
-
-    profilePath1 = '/home/cristopher/HIT/ormData/ormMessdata/04-12-2019/GitterProfile/'
-    # Last session
-    prePath1 = '../ormData/ormMessdata/17-11-2019/ormMessungen/'
-    prePath2 = '../ormData/ormMessdata/04-12-2019/'
-    messFiles = [
-        prePath1 + '2019-11-17_13-38-51_hht3_h1dg1g.orm_measurement.yml',
-        #prePath1 + '2019-11-17_14-49-50_hht3_h1dg2g.orm_measurement.yml',
-        #prePath2 + '2019-12-04_02-58-07_hht3_h2dg2g.orm_measurement.yml',
-        #prePath2 + '2019-12-04_02-22-29_hht3_h3dg3g.orm_measurement.yml',
-        #prePath2 + '2019-12-04_01-46-17_hht3_b3dg2g.orm_measurement.yml',
-        #prePath2 + '2019-12-04_00-51-48_hht3_b3dg3g.orm_measurement.yml',
-        #prePath1 + '2019-11-17_13-58-20_hht3_g3dg3g.orm_measurement.yml',
-        #prePath2 + '2019-12-04_03-17-12_hht3_g3dg5g.orm_measurement.yml',
-        #prePath  + '2019-06-10_11-13-49_hht3_t3dg2g.orm_measurement.yml',
-        #prePath  + '2019-06-10_11-33-56_hht3_t3df1.orm_measurement.yml',
-    ]
-
-    pList =  [
-        'kL_H1QD11',
-        'kL_H1QD12',
-        'kL_H2QT11',
-        'kL_H2QT12',
-        'kL_H2QT13',
-        'kL_H3QD11',
-        'kL_H3QD12',
-        'kL_H3QD21',
-        'kL_H3QD22',
-        'kL_B3QD11',
-        'kL_B3QD12',
-        #'gantry_angle',
-        'kL_G3QD11',
-        'kL_G3QD12',
-        'kL_G3QD21',
-        'kL_G3QD22',
-        'kL_G3QD31',
-        'kL_G3QD32',
-        'kL_EFG_G3QD41',
-        'kL_EFG_G3QD42',
-    ]
-    opt = ORMOptimizer(messFiles, modelPath, profilePath1,
-                       readOrm=False, plotEachM=False,
-                       savePath='../ormBericht/NotSimpleResults/gantry')
-    singMask = 1e6
-    err      = 100
-    maxIts   = 150
-    if simpleFit:
-        opt.fitErrorsSimple(plotMeas=1)
-    else:
-        opt.fitErrors(pList, singularMask=singMask,
-                      error=err,  maxIt=maxIts)
-    
 def fit_hht2(simpleFit=False):
-    
+
     from OrmAnalysis import ORMOptimizer, OrbitResponse
     prePath = '../ormData/ormMessdata/10-06-2019/'
     modelPath_hht2 = '../hit_models/hht2/run.madx'
@@ -261,9 +189,9 @@ def fit_hht2(simpleFit=False):
         '2019-06-10_14-08-29_hht2_t2dg2g.orm_measurement.yml',
         '2019-06-10_14-18-50_hht2_t2df1.orm_measurement.yml',
     ]
-    
+
     for i in range(len(hht2)): hht2[i] = prePath + hht2[i]
-    
+
     pList_hht2 =  [
         'kL_H1QD11',
         'kL_H1QD12',
@@ -363,7 +291,7 @@ def testFit():
     ]
     opt = ORMOptimizer(messFiles1, modelPath, profilePath,
                        readOrm=False, plotEachM=False,
-                       plotShots=False, savePath='.')
+                       plotShots=False, savePath='results/')
     #opt.fitErrorsSimple()
     singMask = 1e6
     err      = 1e1
@@ -374,7 +302,7 @@ def testFit():
 
 def testGitterReader():
     from OrmAnalysis import ORMOptimizer, OrbitResponse
-    from ProfileAnalyzer import ProfileAnalyzer    
+    from ProfileAnalyzer import ProfileAnalyzer
     gitterPath = '/home/cristopher/HIT/ormData/ormMessdata/10-06-2019/GitterProfile/'
     gitterProfile = 'ProfilePT2/'
 
@@ -411,10 +339,195 @@ def testGitterReader():
         data = ormA.data
         gR = ProfileAnalyzer(data, gitterPath+gitterProfile)
         gR.fitProfiles(ormA.monitor.upper(), showProfiles=1, skipShots=0)
-        
+
+def gantry(simpleFit=False):
+
+    from OrmAnalysis import ORMOptimizer
+    modelPath = '../emittanzMess/OrbitResponse/EmitM1E108F1I8/hht3/run.madx'
+    profilePath = '/home/cristopher/HIT/ormData/ormMessdata/10-06-2019/GitterProfile/ProfilePT3/'
+    prePath = '../ormData/ormMessdata/10-06-2019/'
+    messFiles = [
+        '2019-06-10_08-31-35_hht3_h1dg1g.orm_measurement.yml',
+        '2019-06-10_08-36-56_hht3_h1dg2g.orm_measurement.yml',
+        '2019-06-10_08-48-04_hht3_h2dg2g.orm_measurement.yml',
+        '2019-06-10_09-00-22_hht3_h3dg3g.orm_measurement.yml',
+        '2019-06-10_09-20-44_hht3_b3dg2g.orm_measurement.yml',
+        '2019-06-10_09-44-26_hht3_b3dg3g.orm_measurement.yml',
+        '2019-06-10_10-10-58_hht3_g3dg3g.orm_measurement.yml',
+        '2019-06-10_10-41-00_hht3_g3dg5g.orm_measurement.yml',
+        '2019-06-10_11-13-49_hht3_t3dg2g.orm_measurement.yml',
+        '2019-06-10_11-33-56_hht3_t3df1.orm_measurement.yml',
+        ]
+
+    for i in range(len(messFiles)): messFiles[i] = prePath + messFiles[i]
+
+    profilePath1 = '../ormData/ormMessdata/2019-12-04/'
+    # Sessions 04.12.19, 17.11.19, 06.10.19
+    prePath1 = '../ormData/ormMessdata/2019-11-17/ormMessungen/'
+    prePath2 = '../ormData/ormMessdata/2019-12-04/'
+    messFiles = [
+        prePath1 + '2019-11-17_13-38-51_hht3_h1dg1g.orm_measurement.yml',
+        prePath1 + '2019-11-17_14-49-50_hht3_h1dg2g.orm_measurement.yml',
+        prePath2 + '2019-12-04_02-58-07_hht3_h2dg2g.orm_measurement.yml',
+        prePath2 + '2019-12-04_02-22-29_hht3_h3dg3g.orm_measurement.yml',
+        prePath2 + '2019-12-04_01-46-17_hht3_b3dg2g.orm_measurement.yml',
+        prePath2 + '2019-12-04_00-51-48_hht3_b3dg3g.orm_measurement.yml',
+        prePath1 + '2019-11-17_13-58-20_hht3_g3dg3g.orm_measurement.yml',
+        ##prePath1 + '2019-12-04_03-17-12_hht3_g3dg5g.orm_measurement.yml',
+        prePath1 + '2019-11-17_14-30-29_hht3_g3dg5g.orm_measurement.yml',
+        prePath  + '2019-06-10_11-13-49_hht3_t3dg2g.orm_measurement.yml',
+        prePath  + '2019-06-10_11-33-56_hht3_t3df1.orm_measurement.yml',
+    ]
+
+    """
+    prePath = 'results/messFitFiles/'
+    messFiles = [
+        prePath+'h1dg1g.yml',
+        prePath+'h1dg2g.yml',
+        prePath+'h2dg2g.yml',
+        prePath+'h3dg3g.yml',
+        prePath+'b3dg2g.yml',
+        prePath+'b3dg3g.yml',
+        prePath+'g3dg3g.yml',
+        prePath+'g3dg5g.yml',
+        prePath+'t3dg2g.yml',
+        prePath+'t3df1.yml',
+    ]
+        messFiles = [
+        prePath1 +'2020-03-15_19-22-54_hht3_h1dg1g.orm_measurement.yml',
+        prePath1 +'2020-03-15_19-27-44_hht3_h1dg2g.orm_measurement.yml',
+        prePath1 +'2020-03-15_19-38-35_hht3_h2dg2g.orm_measurement.yml',
+        prePath1 +'2020-03-15_19-51-57_hht3_h3dg3g.orm_measurement.yml',
+        prePath1 +'2020-03-15_20-26-12_hht3_g3dg3g.orm_measurement.yml',
+        prePath1 +'2020-03-15_21-08-04_hht3_g3dg5g.orm_measurement.yml',
+        prePath1 +'2020-03-15_21-29-53_hht3_t3dg2g.orm_measurement.yml',
+        prePath1 +'2020-03-15_21-57-07_hht3_t3dg1g.orm_measurement.yml',
+        prePath1 +'2020-03-15_22-00-32_hht3_t3dg1g.orm_measurement.yml',
+        prePath1 +'2020-03-15_22-25-44_hht3_t3df1.orm_measurement.yml',
+    ]
+    """
+    """
+    # Last session 15.03.2020
+    prePath1 = '../ormData/ormMessdata/2020-03-15/ormMessFit/'
+    profilePath = '../ormData/ormMessdata/2020-03-15/Gitterdaten/'
+    messFiles = [
+        prePath1 + 'hht3_h1dg1g.orm_measurement.yml',
+        prePath1 + 'hht3_h1dg2g.orm_measurement.yml',
+        prePath1 + 'hht3_h2dg2g.orm_measurement.yml',
+        prePath1 + 'hht3_h3dg3g.orm_measurement.yml',
+        prePath1 + 'hht3_g3dg3g.orm_measurement.yml',
+        prePath1 + 'hht3_g3dg5g.orm_measurement.yml',
+        prePath1 + 'hht3_t3dg2g.orm_measurement.yml',
+        prePath1 + 'hht3_t3dg1g.orm_measurement.yml',
+        prePath1 + 'hht3_t3df1.orm_measurement.yml',
+    ]
+    prePath1 = '../ormData/ormMessdata/2020-03-15/ormMessDaten/'
+    messFiles = [
+        #prePath1 +'2020-03-15_19-22-54_hht3_h1dg1g.orm_measurement.yml',
+        #prePath1 +'2020-03-15_19-27-44_hht3_h1dg2g.orm_measurement.yml',
+        #prePath1 +'2020-03-15_19-38-35_hht3_h2dg2g.orm_measurement.yml',
+        #prePath1 +'2020-03-15_19-51-57_hht3_h3dg3g.orm_measurement.yml',
+        prePath1 +'2020-03-15_20-26-12_hht3_g3dg3g.orm_measurement.yml',
+        prePath1 +'2020-03-15_21-08-04_hht3_g3dg5g.orm_measurement.yml',
+        prePath1 +'2020-03-15_21-29-53_hht3_t3dg2g.orm_measurement.yml',
+        prePath1 +'2020-03-15_22-00-32_hht3_t3dg1g.orm_measurement.yml',
+        prePath1 +'2020-03-15_22-25-44_hht3_t3df1.orm_measurement.yml',
+    ]
+    """
+    pList =  [
+        'kL_H1QD11',
+        'kL_H1QD12',
+        'kL_H2QT11',
+        'kL_H2QT12',
+        'kL_H2QT13',
+        'kL_H3QD11',
+        'kL_H3QD12',
+        'kL_H3QD21',
+        'kL_H3QD22',
+        'kL_B3QD11',
+        'kL_B3QD12',
+        #'gantry_angle',
+        'kL_G3QD11',
+        'kL_G3QD12',
+        'kL_G3QD21',
+        'kL_G3QD22',
+        'kL_G3QD31',
+        'kL_G3QD32',
+        'kL_EFG_G3QD41',
+        'kL_EFG_G3QD42',
+    ]
+
+    opt = ORMOptimizer(messFiles, modelPath, profilePath1,
+                       readOrm=False, plotEachM=False,
+                       savePath='.')
+    opt.showFit('results/fit2_I9.txt', saveMessFiles=False)
+    singMask = 1e5
+    err      = 1e-1
+    maxIts   = 100
+    if simpleFit:
+        opt.fitErrorsSimple(plotMeas=1)
+    else:
+        opt.fitErrors(pList, singularMask=singMask,
+                      error=err,  maxIt=maxIts)
+
+def gantryFit(simpleFit=False):
+
+    from OrmAnalysis import ORMOptimizer
+    modelPath = '../emittanzMess/OrbitResponse/EmitM1E108F1I8/hht3/run.madx'
+    profilePath1 = '../ormData/ormMessdata/2019-12-04/'
+    profilePath1 = '../ormData/ormMessdata/2020-03-15/Gitterdaten/'
+    prePath = 'results/messFitFiles/'
+    messFiles = [
+        #'results/messFitFiles/h1dg1g.yml',
+        #'results/messFitFiles/h1dg2g.yml',
+        #'results/messFitFiles/h2dg2g.yml',
+        #'results/messFitFiles/h3dg3g.yml',
+        #'results/messFitFiles/b3dg2g.yml',
+        #'results/messFitFiles/b3dg3g.yml',
+        #'results/messFitFiles/g3dg3g.yml',
+        #'results/messFitFiles/g3dg5g.yml',
+        'results/messFitFiles/t3dg1g.yml',
+        'results/messFitFiles/t3dg2g.yml',
+        'results/messFitFiles/t3df1.yml',
+    ]
+    pList =  [
+        #'kL_H1QD11',
+        #'kL_H1QD12',
+        #'kL_H2QT11',
+        #'kL_H2QT12',
+        #'kL_H2QT13',
+        #'kL_H3QD11',
+        #'kL_H3QD12',
+        #'kL_H3QD21',
+        #'kL_H3QD22',
+        #'kL_B3QD11',
+        #'kL_B3QD12',
+        #'gantry_angle',
+        #'kL_G3QD11',
+        #'kL_G3QD12',
+        #'kL_G3QD21',
+        #'kL_G3QD22',
+        'kL_G3QD31',
+        'kL_G3QD32',
+        'kL_EFG_G3QD41',
+        'kL_EFG_G3QD42',
+    ]
+    opt = ORMOptimizer(messFiles, modelPath, profilePath1,
+                       readOrm=False, plotEachM=False,
+                       savePath='.')
+    singMask = 1e5
+    err      = 1e-1
+    maxIts   = 200
+    if simpleFit:
+        opt.fitErrorsSimple(plotMeas=1)
+    else:
+        opt.fitErrors(pList, singularMask=singMask,
+                      error=err,  maxIt=maxIts)
+
 #testGitterReader()
 #fit_hht1(simpleFit=0)
 #fit_hht2(simpleFit=0)
 #preGantry(simpleFit=0)
 gantry(simpleFit=1)
+#gantryFit(simpleFit=0)
 #testFit()

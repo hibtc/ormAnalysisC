@@ -26,7 +26,6 @@ class OrbitResponse:
         self.sequence            = self.getSequence()
         self.madx                = Madx(stdout=False)
         self.madx.call(file=self.madxModelFile, chdir=True)
-
         # This are the initial conditions for the Twiss Module of MAD-X
         # there doesn't seem to be a strong dependence on them
         self.dx  = 1.0e-4
@@ -35,10 +34,10 @@ class OrbitResponse:
         self.dpy = 1.0e-6
 
         # Initial twiss parameters
-        self.alfax = -7.2739282
-        self.alfay = -0.23560719
-        self.betax = 44.404075
-        self.betay = 3.8548009 
+        self.alfax = -3.036572962956109
+        self.alfay = 0.24718095605022355
+        self.betax = 20.549681146151855
+        self.betay = 2.671346837756801
 
     def readData(self, dataFile):
         """
@@ -93,12 +92,12 @@ class OrbitResponse:
             print('Sequence not found!')
 
 
-    #####################################################################        
+    #####################################################################
     # Set here plotShots True to show the grid Reads with fitted peaks  #
     # Set showProfiles to True to show each measurement                 #
     #####################################################################
 
-    def ormMeasured(self, plotShots=True):
+    def ormMeasured(self, plotShots=False):
         """
         Computes the measured orbit responses at an specifical
         monitor, returns the orbit response entries and their errors
@@ -110,8 +109,9 @@ class OrbitResponse:
         self.madx.globals.update(self.data['model'])
         if (self.monitor == 'h1dg1g' or
             self.monitor == 'h1dg2g' or
-            self.monitor == 'g3dg3g'):
-            profilePath = '/home/cristopher/HIT/ormData/ormMessdata/17-11-2019/ORM_profile/'
+            self.monitor == 'g3dg3g' or
+            self.monitor == 'g3dg5g'):
+            profilePath = '../ormData/ormMessdata/2019-11-17/ORM_profile/'
             profAnalizer = ProfileAnalyzer(self.data, profilePath)
         else:
             profAnalizer = ProfileAnalyzer(self.data, self.profilePath)
@@ -122,7 +122,7 @@ class OrbitResponse:
 
         gridProfiles = (len(pOrmx) != 0)
         print(' GridProfiles: ', gridProfiles)
-        
+
         records     = self.data['records']
         beamMess    = []
         beamMessErr = []
@@ -164,7 +164,7 @@ class OrbitResponse:
                                  / kickDiff
                     orbRErr_ky = np.sqrt(pOrmy[self.kickers[k]][1]**2 + pOrmy[''][1]**2) \
                                  / kickDiff
-                
+
                 orbitResponse.append([orbR_kx, orbR_ky])
                 orbitResponseErr.append([orbRErr_kx, orbRErr_ky])
             else:
@@ -185,6 +185,7 @@ class OrbitResponse:
         iMonitor = elems.index(self.monitor)
 
         madx.globals.update(self.data['model'])
+
         twiss0 = madx.twiss(sequence=self.sequence, RMatrix=True,
                             alfx=self.alfax, alfy=self.alfay,
                             betx=self.betax, bety=self.betay,
@@ -365,6 +366,7 @@ class OrbitResponse:
             plt.savefig('Results/{}v'.format(self.monitor))
             plt.close()
 
+
 class ORMOptimizer:
 
     def __init__(self, messFiles, madxFile, profilePath,
@@ -378,6 +380,7 @@ class ORMOptimizer:
         self.nMonitors = len(self.monitors)
         self.nParams   = 0
         self.savePath  = savePath
+        self.preFit    = {}
         self.ormMx, self.ormMy = self.initializeOrm(False, plotShots)
         self.nKickers = len(self.kickers)
         self.dCij_x = 0
@@ -669,7 +672,7 @@ class ORMOptimizer:
         ormMy   = np.transpose(self.ormMy)
         modely0 = ormMy[4]
         modelx0 = ormMx[4]
-        
+
         gme = [self.getGlobalMachineError()]
         self.setpList(pList)
         self.computedOrmdP()
@@ -918,7 +921,7 @@ class ORMOptimizer:
         #######################################
 
         #     Horizontal Plots               #
-        
+
         ######################################
         plt.figure(num=1, figsize=(12.0, 4.8), dpi=120)
         plt.errorbar(x, Mx[2], yerr=Mx[3],
@@ -942,10 +945,12 @@ class ORMOptimizer:
         plt.ylabel(r'Horizontal orbit response [mm mrad$^{-1}$]',fontsize=14)
         plt.xticks([],[])
         plt.legend(loc=0)
+        plt.grid(True,which='both',axis='y')
         plt.tight_layout()
         for i in range(len(monPos)):
             plt.axvline(monPos[i]-0.5, linestyle='--', alpha=0.5)
-            plt.text(monPos[i]-0.3, -5.,#min(Mx[2]),
+            plt.text(monPos[i]-0.3, -12.,
+                     #min(Mx[2]),
                      #hht1 y = 35.
                      #hht2 y = 15.
                      #preGantry y = 0.
@@ -953,11 +958,11 @@ class ORMOptimizer:
                      self.monitors[i],
                      rotation=90, alpha=0.5, fontsize=12)
 
-        
+
         #######################################
 
         #     Vertical Plots               #
-        
+
         ######################################
 
         plt.figure(num=2, figsize=(12.0, 4.8), dpi=120)
@@ -979,9 +984,11 @@ class ORMOptimizer:
         locs, labels = plt.xticks()
         plt.xticks(x, xlabels, rotation='vertical', fontsize=10)
         plt.legend(loc=0)
+        plt.grid(True,which='both',axis='y')
         for i in range(len(monPos)):
             plt.axvline(monPos[i]-0.5, linestyle='--', alpha=0.5)
-            plt.text(monPos[i]-0.3, -30.,#min(Mx[2]),
+            plt.text(monPos[i]-0.3, -20.,
+                     #min(Mx[2]),
                      #gantry = -30.,
                      #hht1 y = -15.
                      self.monitors[i],
@@ -1000,3 +1007,56 @@ class ORMOptimizer:
         np.savetxt('./ormy.txt'.format(self.savePath),
                    ormMy, fmt=['%i','%i','%e', '%e','%e','%e'],
                    delimiter='  ', header=head)
+
+    def showFit(self, fitStrengths, saveMessFiles=False):
+        """
+        Shows the ORM with measured, model and fitStrengths values
+        @param fitStrenths is a yml File with the fitted quad strengths
+        """
+        import yaml
+        orbitResponse_x = []
+        orbitResponse_y = []
+        orA = self.orbitResponseAnalyzer
+        with open(fitStrengths) as f: fitData = safe_load(f)
+        ormMx   = np.transpose(self.ormMx)
+        ormMy   = np.transpose(self.ormMy)
+        modely0 = ormMy[4]
+        modelx0 = ormMx[4]
+
+        for mon_i in range(len(self.messFiles)):
+            measurement = self.messFiles[mon_i]
+            orA.setData(measurement)
+            kickers =  orA.kickers
+            data = orA.data['model']
+            for ele in fitData:
+                oldValue = round(data[ele.lower()],4)
+                data[ele.lower()] *= (1+fitData[ele]/100)
+                newValue = round(data[ele.lower()],4)
+                if (mon_i == len(self.messFiles)-1):
+                    fitVal = round((oldValue-newValue),4)
+                    #print('{} & {} & {} & {} \\'.format(ele, newValue, oldValue, fitVal))
+                    print('{} : {}'.format(ele, data[ele.lower()]))
+
+            if(saveMessFiles):
+                path ='results/messFitFiles/{}.yml'.format(orA.monitor)
+                with open(path, 'w') as file:
+                    yaml.dump(orA.data, file)
+
+            mMeasured, dmMeasured = orA.ormMeasured()
+            mModelx,   mModely    = orA.ormModel()
+            mMx  = mMeasured[0]
+            mMy  = mMeasured[1]
+            dmMx = dmMeasured[0]
+            dmMy = dmMeasured[1]
+
+            for k_i in range(len(kickers)):
+                orbitResponse_x.append([mon_i, k_i, mMx[k_i], dmMx[k_i],
+                                        mModelx[k_i]])
+                orbitResponse_y.append([mon_i, k_i, mMy[k_i], dmMy[k_i],
+                                        mModely[k_i]])
+
+
+
+        self.ormMx = orbitResponse_x
+        self.ormMy = orbitResponse_y
+        self._plotFit(modelx0, modely0)
