@@ -97,7 +97,7 @@ class OrbitResponse:
     # Set showProfiles to True to show each measurement                 #
     #####################################################################
 
-    def ormMeasured(self, plotShots=False):
+    def ormMeasured(self, plotShots=True):
         """
         Computes the measured orbit responses at an specifical
         monitor, returns the orbit response entries and their errors
